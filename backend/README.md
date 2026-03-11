@@ -1,0 +1,444 @@
+# 基金实时估值系统 - 后端
+
+基于 FastAPI 的基金实时估值后端服务，提供基金数据获取、实时估值计算、资产配置查询等功能。
+
+## 技术栈
+
+- **Web 框架**: FastAPI 0.115.0
+- **ASGI 服务器**: Uvicorn
+- **ORM**: SQLAlchemy 2.0 + aiosqlite (异步 SQLite)
+- **数据验证**: Pydantic 2.x
+- **数据源**: 天天基金 API (主要) / AKShare / Wind API / 东方财富 API
+- **定时任务**: APScheduler
+- **缓存**: 内存缓存 (cachetools)
+- **数据库**: SQLite (可扩展至 PostgreSQL/MySQL)
+
+## 项目结构
+
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI 应用入口
+│   ├── config.py               # 配置管理
+│   ├── database.py             # 数据库连接和会话管理 ⭐新增
+│   ├── db_models/              # SQLAlchemy 数据库模型 ⭐新增
+│   │   ├── __init__.py
+│   │   └── portfolio.py        # 组合/持仓表模型
+│   ├── models/                 # Pydantic 数据模型
+│   │   ├── fund.py             # 基金/持仓/资产配置模型
+│   │   ├── valuation.py        # 估值结果模型
+│   │   └── portfolio.py        # 组合管理模型 ⭐新增
+│   ├── routers/                # API 路由
+│   │   ├── funds.py            # 基金相关接口
+│   │   └── portfolios.py       # 组合管理接口 ⭐新增
+│   ├── services/               # 业务逻辑服务
+│   │   ├── fund_service.py     # 基金数据获取 (DB优先) ⭐更新
+│   │   ├── fund_data_db_service.py  # 基金数据库查询 ⭐新增
+│   │   ├── fund_data_sync_service.py # 基金数据同步 ⭐新增
+│   │   ├── ttjj_client.py      # 天天基金 API 客户端
+│   │   ├── portfolio_service.py # 组合管理服务
+│   │   ├── stock_service.py    # 股票行情获取
+│   │   ├── valuation_engine.py # 估值计算引擎
+│   │   └── wind_client.py      # Wind API 客户端
+│   └── utils/                  # 工具函数
+│       ├── fund_list_cache.py  # 基金列表缓存
+│       ├── benchmark_parser.py # 业绩基准解析器
+│       └── intraday_cache.py   # 日内估值缓存
+├── requirements.txt            # Python 依赖
+├── Dockerfile                  # Docker 构建文件
+└── README.md                   # 本文档
+```
+
+## 安装和运行
+
+### 本地开发
+
+```bash
+# 进入后端目录
+cd backend
+
+# 创建虚拟环境
+python -m venv venv
+
+# 激活虚拟环境
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动开发服务器
+python -m app.main
+# 或使用 uvicorn
+uvicorn app.main:app --reload --host 0.0.0.0 --port 50801
+```
+
+服务将在 http://localhost:50801 运行，API 文档地址：http://localhost:50801/docs
+
+### Docker 部署
+
+```bash
+# 构建镜像
+docker build -t fund-valuation-backend .
+
+# 运行容器
+docker run -d -p 50801:50801 --name fund-backend fund-valuation-backend
+```
+
+### Docker Compose（推荐）
+
+```bash
+# 在项目根目录执行
+docker-compose up -d backend
+```
+
+## API 端点列表
+
+### 基金搜索
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/funds/search` | 搜索基金（代码/名称/拼音） |
+| GET | `/api/v1/funds/all` | 获取全部基金列表 |
+
+### 基金信息
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/funds/{fund_code}/info` | 获取基金详细信息（含收益率、评级等）⭐丰富字段 |
+| GET | `/api/v1/funds/{fund_code}/holdings` | 获取基金持仓明细 |
+| GET | `/api/v1/funds/{fund_code}/asset-allocation` | 获取资产配置历史 |
+| GET | `/api/v1/funds/{fund_code}/nav-history` | 获取净值历史走势 |
+
+### 估值相关
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/funds/{fund_code}/valuation` | 获取实时估值 |
+| GET | `/api/v1/funds/{fund_code}/intraday-valuation` | 获取日内估值分时 |
+| POST | `/api/v1/funds/batch-valuation` | 批量获取多个基金估值 |
+
+### 组合管理
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/portfolios` | 获取所有组合列表 |
+| POST | `/api/v1/portfolios` | 创建新组合 |
+| GET | `/api/v1/portfolios/{id}` | 获取组合详情（含持仓和实时估值） |
+| PUT | `/api/v1/portfolios/{id}` | 更新组合名称 |
+| DELETE | `/api/v1/portfolios/{id}` | 删除组合 |
+| POST | `/api/v1/portfolios/{id}/funds` | 添加基金到组合 |
+| PUT | `/api/v1/portfolios/{id}/funds/{code}` | 更新基金份额 |
+| DELETE | `/api/v1/portfolios/{id}/funds/{code}` | 从组合移除基金 |
+| POST | `/api/v1/portfolios/{id}/funds/batch` | 批量添加基金 |
+
+### FundInfo 模型字段说明
+
+| 字段名 | 类型 | 说明 | 数据来源 |
+|--------|------|------|----------|
+| `fund_code` | string | 基金代码 | TTJJ |
+| `fund_name` | string | 基金名称 | TTJJ |
+| `fund_type` | string | 基金类型 | TTJJ |
+| `nav` | float | 最新单位净值 | TTJJ pingzhongdata API |
+| `nav_date` | date | 净值日期 | TTJJ |
+| `total_assets` | float | 基金规模(亿元) | TTJJ HTML页面 |
+| `manager` | string | 基金经理 | TTJJ pingzhongdata API |
+| `company` | string | 基金公司 | TTJJ pingzhongdata API |
+| `benchmark` | string | 业绩比较基准 | 数据库 |
+| `nav_change_percent` | float | 日涨跌幅(%) | TTJJ rankhandler API |
+| `accumulated_nav` | float | 累计净值 | TTJJ rankhandler API |
+| `risk_level` | string | 风险等级 | TTJJ HTML页面 |
+| `rating` | int | 基金评级(1-5星) | TTJJ 评级页面 |
+| `return_1m` | float | 近1月收益率(%) | TTJJ rankhandler API |
+| `return_3m` | float | 近3月收益率(%) | TTJJ rankhandler API |
+| `return_6m` | float | 近6月收益率(%) | TTJJ rankhandler API |
+| `return_1y` | float | 近1年收益率(%) | TTJJ rankhandler API |
+| `return_3y` | float | 近3年收益率(%) | TTJJ rankhandler API |
+| `return_ytd` | float | 今年以来收益率(%) | TTJJ rankhandler API |
+| `return_since_inception` | float | 成立以来收益率(%) | TTJJ rankhandler API |
+
+### API 使用示例
+
+```bash
+# 获取基金基本信息（包含所有新字段）
+curl "http://localhost:50801/api/v1/funds/002351/info"
+```
+
+**响应示例:**
+```json
+{
+  "fund_code": "002351",
+  "fund_name": "易方达裕祥回报债券A",
+  "fund_type": "债券型-混合二级",
+  "nav": 1.635,
+  "nav_date": "2026-03-02",
+  "total_assets": 123.45,
+  "manager": "王晓晨",
+  "company": "易方达基金",
+  "benchmark": "中债新综合财富指数收益率×90%+沪深300指数收益率×10%",
+  "nav_change_percent": 0.25,
+  "accumulated_nav": 1.96,
+  "risk_level": "中低风险",
+  "rating": 5,
+  "return_1m": 1.36,
+  "return_3m": 2.57,
+  "return_6m": 3.28,
+  "return_1y": 7.69,
+  "return_3y": 16.77,
+  "return_ytd": 1.81,
+  "return_since_inception": 100.68
+}
+```
+
+### 管理接口
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/funds/admin/cache-stats` | 查看缓存统计 |
+| POST | `/api/v1/funds/admin/refresh-cache` | 手动刷新基金列表缓存 |
+| POST | `/api/v1/funds/admin/sync-fund-data` | 手动触发基金数据同步 ⭐新增 |
+| GET | `/api/v1/funds/admin/sync-status` | 查看数据同步状态 ⭐新增 |
+| GET | `/health` | 健康检查 |
+
+#### 数据同步接口使用示例
+
+```bash
+# 同步单个基金
+curl -X POST "http://localhost:50801/api/v1/funds/admin/sync-fund-data?fund_code=002474"
+
+# 批量同步前100只基金
+curl -X POST "http://localhost:50801/api/v1/funds/admin/sync-fund-data?limit=100"
+
+# 执行增量同步（只同步未同步过的基金）
+curl -X POST "http://localhost:50801/api/v1/funds/admin/sync-fund-data"
+
+# 查看同步状态
+curl "http://localhost:50801/api/v1/funds/admin/sync-status"
+```
+
+## API 文档
+
+启动服务后，访问以下地址查看交互式 API 文档：
+
+- **Swagger UI**: http://localhost:50801/docs
+- **ReDoc**: http://localhost:50801/redoc
+
+## Wind API 集成
+
+后端可选集成 Wind 金融数据终端 API，提供更准确的数据：
+
+### 需要 Wind 的数据
+
+- 资产配置历史（股票/债券/现金比例）
+- 债券和可转债持仓明细
+- 基金净值历史
+- 业绩基准指数数据
+
+### 配置方式
+
+```python
+# app/services/wind_client.py
+# Wind API 自动检测，如果未安装 WindPy 则回退到 AKShare
+```
+
+安装 WindPy（如有 Wind 终端）：
+
+```bash
+pip install WindPy
+```
+
+## 环境变量配置
+
+| 变量名 | 默认值 | 描述 |
+|--------|--------|------|
+| `DEBUG` | `false` | 调试模式 |
+| `PORT` | `8000` | 服务端口 |
+| `HOST` | `0.0.0.0` | 绑定地址 |
+| `DATABASE_URL` | `sqlite:///./fund_valuation.db` | 数据库连接URL |
+| `NO_PROXY` | `*` | 禁用代理（解决东方财富 API 访问问题）|
+
+## 核心功能说明
+
+### 1. 基金列表缓存
+
+- 启动时加载全部基金列表（26,000+）到内存
+- 搜索速度提升 600-800 倍（6秒 → 10毫秒）
+- 每天凌晨 00:00 自动刷新
+
+### 2. 估值计算引擎
+
+```
+基金实时估值 = 前一交易日净值 × (1 + 估算涨跌幅)
+
+估算涨跌幅 = 重仓股贡献 + 股票补全贡献 + 债券补全贡献
+```
+
+- 解析业绩比较基准获取股票/债券指数
+- 已披露持仓直接计算，未披露部分使用基准指数补全
+- 支持股票型基金和债券型基金的混合估值
+
+### 3. 日内估值采样
+
+- 交易日 9:30-15:00 每 30 秒采样一次
+- 缓存当日估值历史，支持分时图展示
+
+### 4. 基金数据本地存储与同步 ⭐核心功能
+
+**三层数据读取策略:**
+
+```
+用户请求持仓数据
+    │
+    ├─→ 1. 内存缓存 (TTL 1天) ──→ ~0.2s 响应
+    │      未命中 ↓
+    ├─→ 2. SQLite 数据库 ────→ ~0.2s 响应
+    │      未命中 ↓
+    └─→ 3. TTJJ API 获取 ────→ 10-15s 响应
+           ↓
+    自动保存到数据库 + 内存缓存
+```
+
+**数据库表结构:**
+
+```sql
+-- 基金基本信息表
+CREATE TABLE fund_info (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_code VARCHAR(10) UNIQUE NOT NULL,
+    fund_name VARCHAR(200) NOT NULL,
+    fund_type VARCHAR(50),
+    company VARCHAR(100),
+    manager VARCHAR(100),
+    benchmark TEXT,
+    latest_nav FLOAT,
+    nav_date DATETIME
+);
+
+-- 基金持仓明细表 (季度更新)
+CREATE TABLE fund_holdings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_code VARCHAR(10) NOT NULL,
+    report_date VARCHAR(8) NOT NULL,  -- YYYYMMDD
+    stock_holdings JSON,  -- 股票持仓 [{code, name, weight, shares, market_value}]
+    bond_holdings JSON,   -- 债券持仓 [{code, name, weight, market_value, is_convertible}]
+    top10_total_weight FLOAT DEFAULT 0,
+    total_stock_ratio FLOAT DEFAULT 0,
+    total_bond_ratio FLOAT DEFAULT 0,
+    UNIQUE(fund_code, report_date)
+);
+
+-- 资产配置历史表
+CREATE TABLE asset_allocations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_code VARCHAR(10) NOT NULL,
+    report_date VARCHAR(8) NOT NULL,
+    stock_ratio FLOAT DEFAULT 0,
+    bond_ratio FLOAT DEFAULT 0,
+    cash_ratio FLOAT DEFAULT 0,
+    other_ratio FLOAT DEFAULT 0,
+    net_asset FLOAT DEFAULT 0,
+    UNIQUE(fund_code, report_date)
+);
+```
+
+**自动同步机制:**
+
+- **定时同步**: 每天凌晨 02:00 执行增量同步
+- **首次访问**: 从 TTJJ API 获取并自动保存到数据库
+- **增量更新**: 只同步未同步过或报告期过期的基金
+- **手动触发**: 通过管理接口手动触发同步任务
+
+**性能提升:**
+
+| 状态 | 响应时间 | 数据来源 |
+|------|----------|----------|
+| 首次访问 | 10-15s | TTJJ API (自动保存到DB) |
+| 后续访问 | **~0.2s** | SQLite 本地数据库 |
+| 缓存命中 | **~0.2s** | 内存缓存 |
+
+### 5. 组合管理与数据持久化
+
+**数据库表结构:**
+
+```sql
+-- 组合表
+CREATE TABLE portfolios (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 持仓表
+CREATE TABLE portfolio_holdings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    portfolio_id TEXT NOT NULL,
+    fund_code TEXT NOT NULL,
+    fund_name TEXT NOT NULL,
+    shares REAL NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
+);
+```
+
+**功能特性:**
+
+- 完整的 CRUD 操作（创建/读取/更新/删除）
+- 基金持仓管理（添加/移除/修改份额）
+- 批量导入基金功能
+- 实时估值统计计算（总市值/加权涨跌幅）
+- 数据持久化存储（SQLite，可扩展至 PostgreSQL/MySQL）
+- 级联删除（删除组合时自动删除关联持仓）
+
+**技术实现:**
+
+- SQLAlchemy 2.0 异步 ORM
+- aiosqlite 驱动支持
+- FastAPI 依赖注入模式
+- 事务管理确保数据一致性
+
+## 性能优化
+
+| 优化项 | 效果 |
+|--------|------|
+| 基金列表内存缓存 | 搜索速度提升 600-800 倍 |
+| 基金数据本地存储 | 持仓查询从 10-15s 降至 ~0.2s (50-75倍提升) |
+| 三层数据读取 | 内存缓存 → SQLite → API 自动降级 |
+| 禁用系统代理 | 解决东方财富 API 超时问题 |
+| 多级缓存 | 基金信息、持仓、行情数据缓存 |
+| 批量 API 调用 | 减少外部请求次数 |
+
+## 性能基准
+
+### 持仓接口性能对比
+
+| 数据来源 | 响应时间 | 说明 |
+|----------|----------|------|
+| 内存缓存 | ~0.2s | 最优，重启丢失 |
+| SQLite数据库 | ~0.2s | 持久化，推荐 |
+| TTJJ API | 10-15s | 首次或数据过期 |
+
+### 典型响应时间
+
+```
+GET /api/v1/funds/search          ~0.2s   ✅
+GET /api/v1/funds/{code}/holdings ~0.2s   ✅ (已同步基金)
+GET /api/v1/funds/{code}/asset-allocation ~0.4s ✅
+GET /api/v1/portfolios            ~0.5s   ✅
+```
+
+## 注意事项
+
+1. **数据准确性**: 估值结果仅供参考，季报数据有滞后性
+2. **API 限制**: 使用免费数据源，频繁调用可能触发限流
+3. **代理配置**: 已禁用系统代理以避免东方财富 API 访问问题
+4. **内存占用**: 基金列表缓存约占用 20MB 内存
+
+## 相关文档
+
+- [缓存优化方案](./CACHE_OPTIMIZATION.md) - 基金列表缓存优化详情
+- [项目根目录 README](../README.md) - 项目整体说明
