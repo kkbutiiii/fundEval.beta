@@ -793,6 +793,21 @@ class PortfolioService:
                 shares = max(0, shares)
 
                 if shares > 0:
+                    # Calculate cost basis first (independent of NAV availability)
+                    # This ensures cost is always tracked even if NAV data is missing
+                    cost_basis = sum(
+                        tx.amount for tx in transactions
+                        if tx.fund_code == holding.fund_code
+                        and tx.transaction_type == 'buy'
+                        and tx.transaction_date <= current_date
+                    ) - sum(
+                        tx.amount for tx in transactions
+                        if tx.fund_code == holding.fund_code
+                        and tx.transaction_type == 'sell'
+                        and tx.transaction_date <= current_date
+                    )
+                    total_cost += cost_basis
+
                     # Get NAV for this date
                     try:
                         # Try to get from database first
@@ -803,20 +818,6 @@ class PortfolioService:
                         if nav_data and nav_data > 0:
                             market_value = shares * nav_data
                             total_value += market_value
-
-                            # Calculate cost basis (transactions up to this date)
-                            cost_basis = sum(
-                                tx.amount for tx in transactions
-                                if tx.fund_code == holding.fund_code
-                                and tx.transaction_type == 'buy'
-                                and tx.transaction_date <= current_date
-                            ) - sum(
-                                tx.amount for tx in transactions
-                                if tx.fund_code == holding.fund_code
-                                and tx.transaction_type == 'sell'
-                                and tx.transaction_date <= current_date
-                            )
-                            total_cost += cost_basis
                     except Exception as e:
                         print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
 

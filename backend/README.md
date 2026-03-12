@@ -24,11 +24,13 @@ backend/
 │   ├── database.py             # 数据库连接和会话管理 ⭐新增
 │   ├── db_models/              # SQLAlchemy 数据库模型 ⭐新增
 │   │   ├── __init__.py
-│   │   └── portfolio.py        # 组合/持仓表模型
+│   │   ├── portfolio.py        # 组合/持仓表模型
+│   │   └── transaction.py      # 交易记录表模型 ⭐新增
 │   ├── models/                 # Pydantic 数据模型
 │   │   ├── fund.py             # 基金/持仓/资产配置模型
 │   │   ├── valuation.py        # 估值结果模型
-│   │   └── portfolio.py        # 组合管理模型 ⭐新增
+│   │   ├── portfolio.py        # 组合管理模型 ⭐新增
+│   │   └── transaction.py      # 交易记录模型 ⭐新增
 │   ├── routers/                # API 路由
 │   │   ├── funds.py            # 基金相关接口
 │   │   └── portfolios.py       # 组合管理接口 ⭐新增
@@ -134,6 +136,83 @@ docker-compose up -d backend
 | PUT | `/api/v1/portfolios/{id}/funds/{code}` | 更新基金份额 |
 | DELETE | `/api/v1/portfolios/{id}/funds/{code}` | 从组合移除基金 |
 | POST | `/api/v1/portfolios/{id}/funds/batch` | 批量添加基金 |
+
+### 交易记录
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/api/v1/portfolios/{id}/funds/{code}/transactions` | 创建买入/卖出交易 |
+| GET | `/api/v1/portfolios/{id}/transactions` | 获取组合所有交易记录 |
+| GET | `/api/v1/portfolios/{id}/funds/{code}/transactions` | 获取指定基金的交易记录 |
+| DELETE | `/api/v1/portfolios/{id}/transactions/{tx_id}` | 删除交易记录 |
+| GET | `/api/v1/portfolios/{id}/funds/{code}/transaction-summary` | 获取基金交易汇总 |
+| GET | `/api/v1/portfolios/{id}/history` | 获取组合历史市值和收益率 |
+
+#### 交易记录 API 示例
+
+**创建买入交易（填写份额，自动计算金额）:**
+```bash
+curl -X POST "http://localhost:50801/api/v1/portfolios/portfolio_xxx/funds/000001/transactions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_type": "buy",
+    "transaction_date": "2026-03-10",
+    "nav": 1.1080,
+    "shares": 1000
+  }'
+```
+
+**创建买入交易（填写金额，自动计算份额）:**
+```bash
+curl -X POST "http://localhost:50801/api/v1/portfolios/portfolio_xxx/funds/000001/transactions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_type": "buy",
+    "transaction_date": "2026-03-10",
+    "nav": 1.1080,
+    "amount": 1108.00
+  }'
+```
+
+**创建卖出交易:**
+```bash
+curl -X POST "http://localhost:50801/api/v1/portfolios/portfolio_xxx/funds/000001/transactions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_type": "sell",
+    "transaction_date": "2026-03-12",
+    "nav": 1.1200,
+    "shares": 500
+  }'
+```
+
+**获取历史市值和收益率:**
+```bash
+# 获取近30天数据（支持：30d, 60d, 6m, ytd）
+curl "http://localhost:50801/api/v1/portfolios/portfolio_xxx/history?period=30d"
+```
+
+**响应示例:**
+```json
+{
+  "portfolio_id": "portfolio_xxx",
+  "period": "30d",
+  "data": [
+    {
+      "date": "2026-02-10",
+      "total_value": 15000.00,
+      "total_cost": 14500.00,
+      "return_rate": 3.45
+    },
+    {
+      "date": "2026-02-11",
+      "total_value": 15120.50,
+      "total_cost": 14500.00,
+      "return_rate": 4.28
+    }
+  ]
+}
+```
 
 ### FundInfo 模型字段说明
 
@@ -383,6 +462,21 @@ CREATE TABLE portfolio_holdings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
 );
+
+-- 交易记录表
+CREATE TABLE fund_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    portfolio_id TEXT NOT NULL,
+    fund_code VARCHAR(20) NOT NULL,
+    fund_name VARCHAR(255) NOT NULL,
+    transaction_type VARCHAR(10) NOT NULL,  -- 'buy' 或 'sell'
+    transaction_date DATE NOT NULL,          -- 确认日期
+    nav FLOAT NOT NULL,                      -- 确认净值
+    shares FLOAT NOT NULL,                   -- 份额
+    amount FLOAT NOT NULL,                   -- 金额
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
+);
 ```
 
 **功能特性:**
@@ -390,9 +484,11 @@ CREATE TABLE portfolio_holdings (
 - 完整的 CRUD 操作（创建/读取/更新/删除）
 - 基金持仓管理（添加/移除/修改份额）
 - 批量导入基金功能
+- 交易记录管理（买入/卖出，支持份额/金额二选一输入）
+- 历史市值和收益率曲线（支持 30d/60d/6m/ytd 周期）
 - 实时估值统计计算（总市值/加权涨跌幅）
 - 数据持久化存储（SQLite，可扩展至 PostgreSQL/MySQL）
-- 级联删除（删除组合时自动删除关联持仓）
+- 级联删除（删除组合时自动删除关联持仓和交易记录）
 
 **技术实现:**
 

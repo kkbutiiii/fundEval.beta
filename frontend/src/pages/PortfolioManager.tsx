@@ -34,6 +34,7 @@ const PortfolioManager: React.FC = () => {
     removeFundFromPortfolio,
     updateFundShares,
     batchAddFunds,
+    refresh: refreshPortfolios,
     loading: portfolioLoading,
   } = usePortfolios();
 
@@ -202,8 +203,11 @@ const PortfolioManager: React.FC = () => {
       await api.createTransaction(currentPortfolio.id, selectedFund.fund_code, data);
       message.success(`${data.transaction_type === 'buy' ? '买入' : '卖出'}成功`);
       setTransactionModalVisible(false);
-      // Refresh data
-      setTimeout(() => refresh(), 100);
+      // Refresh both portfolio data (for updated shares) and realtime data (for valuations)
+      setTimeout(() => {
+        refreshPortfolios();
+        refresh();
+      }, 100);
     } catch (error) {
       message.error('交易失败');
       console.error(error);

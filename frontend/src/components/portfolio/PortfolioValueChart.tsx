@@ -21,20 +21,24 @@ const PERIOD_OPTIONS = [
   { label: '今年以来', value: 'ytd' },
 ];
 
-// Dynamically import echarts
-let echarts: any = null;
-if (typeof window !== 'undefined') {
-  import('echarts').then((module) => {
-    echarts = module;
-  });
-}
-
 export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfolioId }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PortfolioHistory | null>(null);
   const [period, setPeriod] = useState('30d');
+  const [echartsReady, setEchartsReady] = useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
   const chartInstance = React.useRef<any>(null);
+  const echartsModule = React.useRef<any>(null);
+
+  // Dynamically import echarts and track loading state
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('echarts').then((module) => {
+        echartsModule.current = module;
+        setEchartsReady(true);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,7 +59,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
   }, [portfolioId, period]);
 
   useEffect(() => {
-    if (!data?.data?.length || !chartRef.current || !echarts) {
+    if (!data?.data?.length || !chartRef.current || !echartsReady || !echartsModule.current) {
       return;
     }
 
@@ -65,7 +69,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
     }
 
     // Initialize chart
-    chartInstance.current = echarts.init(chartRef.current);
+    chartInstance.current = echartsModule.current.init(chartRef.current);
 
     const dates = data.data.map((d) => d.date);
     const values = data.data.map((d) => d.total_value);
@@ -139,7 +143,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
           lineStyle: { width: 3, color: '#5470c6' },
           itemStyle: { color: '#5470c6' },
           areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            color: new echartsModule.current.graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: 'rgba(84, 112, 198, 0.3)' },
               { offset: 1, color: 'rgba(84, 112, 198, 0.05)' },
             ]),
@@ -170,7 +174,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
       chartInstance.current?.dispose();
       chartInstance.current = null;
     };
-  }, [data]);
+  }, [data, echartsReady]);
 
   const handlePeriodChange = (e: any) => {
     setPeriod(e.target.value);
