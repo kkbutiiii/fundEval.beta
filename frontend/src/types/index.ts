@@ -289,3 +289,22 @@ export interface TransactionSummary {
   total_sold_amount: number;
   net_investment: number;
 }
+
+// =============================================================================
+// Portfolio History Types
+// =============================================================================
+
+/** Single data point for portfolio history */
+export interface PortfolioHistoryPoint {
+  date: string;           // YYYY-MM-DD
+  total_value: number;    // Total market value
+  total_cost: number;     // Total cost basis
+  return_rate: number;    // Return rate in percentage
+}
+
+/** Portfolio history response */
+export interface PortfolioHistory {
+  portfolio_id: string;
+  period: string;
+  data: PortfolioHistoryPoint[];
+}

@@ -7,7 +7,8 @@ import type {
   AssetAllocationHistory, NavHistoryData, IntradayValuationData,
   FundEstimation, EstimationAPIResponse, EstimationSummary,
   FundPortfolio, PortfolioFund, PortfolioSummary,
-  FundTransaction, CreateTransactionRequest, TransactionSummary
+  FundTransaction, CreateTransactionRequest, TransactionSummary,
+  PortfolioHistory
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -274,6 +275,17 @@ class ApiService {
   async getTransactionSummary(portfolioId: string, fundCode: string): Promise<TransactionSummary> {
     const response = await this.client.get<TransactionSummary>(
       `/portfolios/${portfolioId}/funds/${fundCode}/transaction-summary`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get portfolio historical value and return data.
+   */
+  async getPortfolioHistory(portfolioId: string, period: string = '30d'): Promise<PortfolioHistory> {
+    const response = await this.client.get<PortfolioHistory>(
+      `/portfolios/${portfolioId}/history`,
+      { params: { period } }
     );
     return response.data;
   }

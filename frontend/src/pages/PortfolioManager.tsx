@@ -15,6 +15,8 @@ import ImportFundsModal from '../components/portfolio/ImportFundsModal';
 import AddFundModal from '../components/portfolio/AddFundModal';
 import TransactionModal from '../components/portfolio/TransactionModal';
 import FundDetailDrawer from '../components/portfolio/FundDetailDrawer';
+import PortfolioValueChart from '../components/portfolio/PortfolioValueChart';
+import PortfolioReturnChart from '../components/portfolio/PortfolioReturnChart';
 import { api } from '../services/api';
 import type { PortfolioFund, CreateTransactionRequest } from '../types';
 
@@ -268,6 +270,12 @@ const PortfolioManager: React.FC = () => {
                 onBuy={handleBuy}
                 onSell={handleSell}
               />
+
+              {/* Charts Row */}
+              <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <PortfolioValueChart portfolioId={currentPortfolio.id} />
+                <PortfolioReturnChart portfolioId={currentPortfolio.id} />
+              </div>
             </>
           ) : (
             <div

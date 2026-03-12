@@ -709,5 +709,176 @@ class PortfolioService:
             net_investment=total_bought_amount - total_sold_amount
         )
 
+    # ==========================================================================
+    # Historical Value and Return Methods
+    # ==========================================================================
+
+    @classmethod
+    async def get_portfolio_history(
+        cls,
+        db: AsyncSession,
+        portfolio_id: str,
+        period: str = '30d'
+    ) -> Optional[dict]:
+        """Get portfolio historical value and return data."""
+        # Check if portfolio exists
+        result = await db.execute(
+            select(PortfolioDB).where(PortfolioDB.id == portfolio_id)
+        )
+        portfolio = result.scalar_one_or_none()
+        if not portfolio:
+            return None
+
+        # Calculate date range
+        end_date = datetime.now().date()
+        period_days = {
+            '30d': 30,
+            '60d': 60,
+            '6m': 180,
+            'ytd': (end_date - end_date.replace(month=1, day=1)).days + 1
+        }
+        days = period_days.get(period, 30)
+        start_date = end_date - timedelta(days=days)
+
+        # Get all holdings
+        result = await db.execute(
+            select(PortfolioHoldingDB).where(
+                PortfolioHoldingDB.portfolio_id == portfolio_id
+            )
+        )
+        holdings = result.scalars().all()
+
+        if not holdings:
+            return {
+                'portfolio_id': portfolio_id,
+                'period': period,
+                'data': []
+            }
+
+        # Get all transactions for the period
+        result = await db.execute(
+            select(FundTransactionDB).where(
+                FundTransactionDB.portfolio_id == portfolio_id,
+                FundTransactionDB.transaction_date <= end_date
+            )
+        )
+        transactions = result.scalars().all()
+
+        # Import wind client for NAV history
+        from app.services.wind_client import wind_client
+
+        # For each date, calculate total value and cost
+        history_data = []
+        current_date = start_date
+
+        while current_date <= end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+
+            total_value = 0.0
+            total_cost = 0.0
+
+            for holding in holdings:
+                # Calculate shares held on this date
+                shares = holding.shares
+
+                # Adjust for transactions after this date
+                for tx in transactions:
+                    if tx.fund_code == holding.fund_code and tx.transaction_date > current_date:
+                        if tx.transaction_type == 'buy':
+                            shares -= tx.shares
+                        else:  # sell
+                            shares += tx.shares
+
+                # Ensure non-negative
+                shares = max(0, shares)
+
+                if shares > 0:
+                    # Get NAV for this date
+                    try:
+                        # Try to get from database first
+                        nav_data = await cls._get_nav_for_date(
+                            db, holding.fund_code, current_date
+                        )
+
+                        if nav_data and nav_data > 0:
+                            market_value = shares * nav_data
+                            total_value += market_value
+
+                            # Calculate cost basis (transactions up to this date)
+                            cost_basis = sum(
+                                tx.amount for tx in transactions
+                                if tx.fund_code == holding.fund_code
+                                and tx.transaction_type == 'buy'
+                                and tx.transaction_date <= current_date
+                            ) - sum(
+                                tx.amount for tx in transactions
+                                if tx.fund_code == holding.fund_code
+                                and tx.transaction_type == 'sell'
+                                and tx.transaction_date <= current_date
+                            )
+                            total_cost += cost_basis
+                    except Exception as e:
+                        print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
+
+            # Calculate return rate
+            return_rate = ((total_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
+
+            history_data.append({
+                'date': date_str,
+                'total_value': round(total_value, 2),
+                'total_cost': round(total_cost, 2),
+                'return_rate': round(return_rate, 4)
+            })
+
+            current_date += timedelta(days=1)
+
+        return {
+            'portfolio_id': portfolio_id,
+            'period': period,
+            'data': history_data
+        }
+
+    @classmethod
+    async def _get_nav_for_date(
+        cls,
+        db: AsyncSession,
+        fund_code: str,
+        date: datetime.date
+    ) -> Optional[float]:
+        """Get NAV for a fund on a specific date."""
+        try:
+            # Try to get from FundInfoDB (cached data)
+            result = await db.execute(
+                select(FundInfoDB).where(FundInfoDB.fund_code == fund_code)
+            )
+            fund_info = result.scalar_one_or_none()
+
+            # If we have cached NAV data and it's recent enough, use it
+            if fund_info and fund_info.nav and fund_info.nav_date:
+                nav_date = datetime.strptime(fund_info.nav_date, '%Y-%m-%d').date()
+                # Use if within 5 days (approximation for non-trading days)
+                if abs((date - nav_date).days) <= 5:
+                    return fund_info.nav
+
+            # Fallback: try Wind API for historical data
+            from app.services.wind_client import wind_client
+            date_str = date.strftime('%Y%m%d')
+
+            # Use synchronous call in async context
+            nav_history = await asyncio.to_thread(
+                wind_client.get_nav_history,
+                fund_code,
+                date_str,
+                date_str
+            )
+
+            if nav_history and len(nav_history) > 0:
+                return nav_history[0].nav
+
+        except Exception as e:
+            print(f"Error fetching NAV for {fund_code} on {date}: {e}")
+
+        return None
+
 
 portfolio_service = PortfolioService()

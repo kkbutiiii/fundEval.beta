@@ -2,7 +2,8 @@
 Portfolio management API router.
 """
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -182,3 +183,30 @@ async def get_transaction_summary(
     if not summary:
         raise HTTPException(status_code=404, detail="Fund not found in portfolio")
     return summary
+
+
+# =============================================================================
+# Historical Value and Return Endpoints
+# =============================================================================
+
+class PortfolioHistoryResponse(BaseModel):
+    """Response model for portfolio history."""
+    portfolio_id: str
+    period: str
+    data: List[dict]
+
+
+@router.get("/{portfolio_id}/history", response_model=PortfolioHistoryResponse)
+async def get_portfolio_history(
+    portfolio_id: str,
+    period: str = Query("30d", regex="^(30d|60d|6m|ytd)$"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get portfolio historical value and return data.
+
+    - **period**: Time period (30d, 60d, 6m, ytd)
+    """
+    history = await portfolio_service.get_portfolio_history(db, portfolio_id, period)
+    if not history:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    return PortfolioHistoryResponse(**history)
