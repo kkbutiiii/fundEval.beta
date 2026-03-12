@@ -69,18 +69,25 @@ export function usePortfolioRealtime(
           const latestNav = fundInfo?.nav ?? estimation?.latest_nav ?? fund.latest_nav;
           const latestGrowth = fundInfo?.nav_change_percent ?? estimation?.latest_growth ?? fund.latest_growth;
 
+          // 【优化】当估算净值不存在时，使用最新净值计算估算市值
+          const estimatedNav = estimation?.latest_nav;
+          const isEstimatedFallback = estimatedNav === undefined || estimatedNav === null;
+          const effectiveEstimatedNav = estimatedNav ?? latestNav;
+
           return {
             ...fund,
             fund_name: fundInfo?.fund_name ?? estimation?.name ?? fund.fund_name,
-            estimated_nav: estimation?.latest_nav,
+            estimated_nav: estimatedNav,
             estimated_growth: estimation?.latest_growth,
             // Use FundInfo nav data for latest values
             latest_nav: latestNav,
             latest_growth: latestGrowth,
             nav_date: fundInfo?.nav_date,
             // Calculate values
-            estimated_value: fund.shares * (estimation?.latest_nav || 0),
+            estimated_value: fund.shares * (effectiveEstimatedNav || 0),
             latest_value: fund.shares * (latestNav || 0),
+            // Flag to indicate if using fallback
+            is_estimated_fallback: isEstimatedFallback && effectiveEstimatedNav !== undefined,
           };
         }
         return {

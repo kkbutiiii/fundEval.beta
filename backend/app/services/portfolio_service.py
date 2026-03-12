@@ -435,8 +435,10 @@ class PortfolioService:
             )
 
             # Calculate values
-            if fund_with_value.estimated_nav is not None:
-                fund_with_value.estimated_value = holding.shares * fund_with_value.estimated_nav
+            # 【优化】当估算净值不存在时，使用最新净值计算估算市值，避免显示为0
+            effective_estimated_nav = fund_with_value.estimated_nav if fund_with_value.estimated_nav is not None else fund_with_value.latest_nav
+            if effective_estimated_nav is not None:
+                fund_with_value.estimated_value = holding.shares * effective_estimated_nav
                 total_estimated_value += fund_with_value.estimated_value
 
             if fund_with_value.latest_nav is not None:

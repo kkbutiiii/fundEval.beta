@@ -208,16 +208,27 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       title: '估算市值',
       dataIndex: 'estimated_value',
       key: 'estimated_value',
-      width: 130,
+      width: 140,
       align: 'right' as const,
       render: (value: number, record: PortfolioFund) => (
         <div>
-          <div><Text strong>{formatCurrency(value)}</Text></div>
-          {record.estimation_time && (
+          <div>
+            <Text strong>{formatCurrency(value)}</Text>
+            {record.is_estimated_fallback && (
+              <Tooltip title="估算净值未更新，使用最新净值计算">
+                <Tag color="orange" style={{ marginLeft: 4, fontSize: 10, padding: '0 4px' }}>昨</Tag>
+              </Tooltip>
+            )}
+          </div>
+          {record.estimation_time ? (
             <Text type="secondary" style={{ fontSize: 12 }}>
               {record.estimation_time}
             </Text>
-          )}
+          ) : record.is_estimated_fallback && record.nav_date ? (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.nav_date}
+            </Text>
+          ) : null}
         </div>
       ),
     },

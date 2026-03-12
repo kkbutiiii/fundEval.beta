@@ -229,6 +229,8 @@ export interface PortfolioFund {
   // Calculated fields
   estimated_value?: number;    // Estimated value = shares * estimated_nav
   latest_value?: number;       // Latest value = shares * latest_nav
+  // Flag to indicate if estimated_value uses latest_nav as fallback
+  is_estimated_fallback?: boolean;  // True when estimated_nav is missing and latest_nav is used
 }
 
 /** Fund portfolio */
