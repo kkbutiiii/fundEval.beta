@@ -81235,20 +81235,6 @@
     "pinyin_full": ""
   },
   {
-    "fund_code": "014888",
-    "fund_name": "东方红锦融甄选18个月持有混合A",
-    "fund_type": "混合型-偏债",
-    "pinyin": "DFHJRZX18GYCYHHA",
-    "pinyin_full": ""
-  },
-  {
-    "fund_code": "014889",
-    "fund_name": "东方红锦融甄选18个月持有混合C",
-    "fund_type": "混合型-偏债",
-    "pinyin": "DFHJRZX18GYCYHHC",
-    "pinyin_full": ""
-  },
-  {
     "fund_code": "014892",
     "fund_name": "永赢添添欣12个月持有混合A",
     "fund_type": "混合型-偏债",
@@ -156263,14 +156249,14 @@
   {
     "fund_code": "026493",
     "fund_name": "恒生前海丰元兴瑞债券A",
-    "fund_type": "",
+    "fund_type": "债券型-混合二级",
     "pinyin": "HSQHFYXRZQA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026494",
     "fund_name": "恒生前海丰元兴瑞债券C",
-    "fund_type": "",
+    "fund_type": "债券型-混合二级",
     "pinyin": "HSQHFYXRZQC",
     "pinyin_full": ""
   },
@@ -158188,29 +158174,43 @@
   {
     "fund_code": "026910",
     "fund_name": "富国智享稳健120天持有期混合(FOF)A",
-    "fund_type": "",
+    "fund_type": "FOF-均衡型",
     "pinyin": "FGZXWJ120TCYQHHFOFA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026911",
     "fund_name": "富国智享稳健120天持有期混合(FOF)C",
-    "fund_type": "",
+    "fund_type": "FOF-均衡型",
     "pinyin": "FGZXWJ120TCYQHHFOFC",
     "pinyin_full": ""
   },
   {
     "fund_code": "026929",
     "fund_name": "明亚稳健配置三个月持有期混合(FOF)A",
-    "fund_type": "",
+    "fund_type": "FOF-均衡型",
     "pinyin": "MYWJPZSGYCYQHHFOFA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026930",
     "fund_name": "明亚稳健配置三个月持有期混合(FOF)C",
-    "fund_type": "",
+    "fund_type": "FOF-均衡型",
     "pinyin": "MYWJPZSGYCYQHHFOFC",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026947",
+    "fund_name": "东方红周期研选混合发起A",
+    "fund_type": "",
+    "pinyin": "DFHZQYXHHFQA",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026948",
+    "fund_name": "东方红周期研选混合发起C",
+    "fund_type": "",
+    "pinyin": "DFHZQYXHHFQC",
     "pinyin_full": ""
   },
   {
@@ -160113,7 +160113,7 @@
   {
     "fund_code": "159009",
     "fund_name": "易方达创业板新能源ETF",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "YFDCYBXNYETF",
     "pinyin_full": ""
   },
@@ -160673,7 +160673,7 @@
   {
     "fund_code": "159196",
     "fund_name": "易方达中证港股通信息技术综合ETF",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "YFDZZGGTXXJSZHETF",
     "pinyin_full": ""
   },
@@ -160687,7 +160687,7 @@
   {
     "fund_code": "159198",
     "fund_name": "富国中证港股通信息技术综合ETF",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "FGZZGGTXXJSZHETF",
     "pinyin_full": ""
   },
