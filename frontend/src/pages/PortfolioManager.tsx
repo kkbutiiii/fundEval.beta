@@ -79,8 +79,12 @@ const PortfolioManager: React.FC = () => {
     }
   };
 
-  // Handle adding a single fund
-  const handleAddFund = async (fund: { fund_code: string; fund_name: string; shares: number }) => {
+  // Handle adding a single fund with first buy transaction
+  const handleAddFund = async (
+    fundCode: string,
+    fundName: string,
+    transaction: CreateTransactionRequest
+  ) => {
     if (!currentPortfolio) {
       message.warning('请先选择一个组合');
       return;
@@ -88,24 +92,31 @@ const PortfolioManager: React.FC = () => {
 
     try {
       // Check if fund already exists
-      const exists = currentPortfolio.funds.some(f => f.fund_code === fund.fund_code);
+      const exists = currentPortfolio.funds.some(f => f.fund_code === fundCode);
       if (exists) {
         message.warning('该基金已在组合中');
         return;
       }
 
+      // Step 1: Add fund to portfolio with initial shares
       const portfolioFund: PortfolioFund = {
-        fund_code: fund.fund_code,
-        fund_name: fund.fund_name,
-        shares: fund.shares,
+        fund_code: fundCode,
+        fund_name: fundName,
+        shares: transaction.shares,
       };
-
       await addFundToPortfolio(currentPortfolio.id, portfolioFund);
-      setAddFundVisible(false);
-      message.success('基金添加成功');
 
-      // Refresh to get realtime data for the new fund
-      setTimeout(() => refresh(), 100);
+      // Step 2: Create the first buy transaction
+      await api.createTransaction(currentPortfolio.id, fundCode, transaction);
+
+      setAddFundVisible(false);
+      message.success('基金添加成功（已记录首次买入交易）');
+
+      // Refresh both portfolio data and realtime data
+      setTimeout(() => {
+        refreshPortfolios();
+        refresh();
+      }, 100);
     } catch (error) {
       message.error('添加基金失败');
       console.error(error);

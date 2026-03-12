@@ -767,15 +767,16 @@ class PortfolioService:
         # Import wind client for NAV history
         from app.services.wind_client import wind_client
 
-        # For each date, calculate total value and cost
-        history_data = []
-        current_date = start_date
+        # First pass: Collect NAV history and calculate daily data
+        # Structure: {fund_code: {date_str: nav_value}}
+        fund_nav_history = {}
+        # Structure: {date_str: {'shares': {fund_code: shares}, 'values': {fund_code: market_value}}}
+        daily_data = {}
 
+        current_date = start_date
         while current_date <= end_date:
             date_str = current_date.strftime('%Y-%m-%d')
-
-            total_value = 0.0
-            total_cost = 0.0
+            daily_data[date_str] = {'shares': {}, 'values': {}, 'costs': {}}
 
             for holding in holdings:
                 # Calculate shares held on this date
@@ -789,12 +790,11 @@ class PortfolioService:
                         else:  # sell
                             shares += tx.shares
 
-                # Ensure non-negative
                 shares = max(0, shares)
+                daily_data[date_str]['shares'][holding.fund_code] = shares
 
                 if shares > 0:
-                    # Calculate cost basis first (independent of NAV availability)
-                    # This ensures cost is always tracked even if NAV data is missing
+                    # Calculate cost basis
                     cost_basis = sum(
                         tx.amount for tx in transactions
                         if tx.fund_code == holding.fund_code
@@ -806,32 +806,71 @@ class PortfolioService:
                         and tx.transaction_type == 'sell'
                         and tx.transaction_date <= current_date
                     )
-                    total_cost += cost_basis
+                    daily_data[date_str]['costs'][holding.fund_code] = cost_basis
 
                     # Get NAV for this date
                     try:
-                        # Try to get from database first
                         nav_data = await cls._get_nav_for_date(
                             db, holding.fund_code, current_date
                         )
 
                         if nav_data and nav_data > 0:
-                            market_value = shares * nav_data
-                            total_value += market_value
+                            if holding.fund_code not in fund_nav_history:
+                                fund_nav_history[holding.fund_code] = {}
+                            fund_nav_history[holding.fund_code][date_str] = nav_data
+                            daily_data[date_str]['values'][holding.fund_code] = shares * nav_data
                     except Exception as e:
                         print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
 
-            # Calculate return rate
-            return_rate = ((total_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
+            current_date += timedelta(days=1)
+
+        # Second pass: Calculate returns based on NAV changes (time-weighted)
+        history_data = []
+        sorted_dates = sorted(daily_data.keys())
+
+        for i, date_str in enumerate(sorted_dates):
+            data = daily_data[date_str]
+            total_value = sum(data['values'].values())
+            total_cost = sum(data['costs'].values())
+
+            # Calculate return rate based on NAV changes (not cash flows)
+            # This is the daily portfolio return weighted by holdings
+            daily_return_rate = 0.0
+            total_weight = 0.0
+
+            for fund_code, market_value in data['values'].items():
+                if market_value > 0:
+                    weight = market_value / total_value if total_value > 0 else 0
+                    total_weight += weight
+
+                    # Get previous day's NAV for this fund
+                    if i > 0:
+                        prev_date = sorted_dates[i - 1]
+                        prev_nav = fund_nav_history.get(fund_code, {}).get(prev_date)
+                        curr_nav = fund_nav_history.get(fund_code, {}).get(date_str)
+
+                        if prev_nav and curr_nav and prev_nav > 0:
+                            fund_return = (curr_nav - prev_nav) / prev_nav * 100
+                            daily_return_rate += weight * fund_return
+
+            # Calculate cumulative return from start
+            if i == 0:
+                cumulative_return = 0.0
+            else:
+                # Alternative: calculate as (current_value / initial_cost - 1) * 100
+                # But this includes cash flow effects
+                # Use time-weighted approach: compound the daily returns
+                prev_data = history_data[i - 1]
+                prev_cumulative = prev_data['return_rate']
+                # Simple compounding: (1 + r1/100) * (1 + r2/100) - 1
+                cumulative_return = ((1 + prev_cumulative / 100) * (1 + daily_return_rate / 100) - 1) * 100
 
             history_data.append({
                 'date': date_str,
                 'total_value': round(total_value, 2),
                 'total_cost': round(total_cost, 2),
-                'return_rate': round(return_rate, 4)
+                'return_rate': round(cumulative_return, 4)
             })
-
-            current_date += timedelta(days=1)
 
         return {
             'portfolio_id': portfolio_id,
