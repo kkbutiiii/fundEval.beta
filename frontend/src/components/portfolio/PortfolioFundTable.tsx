@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import {
   Table,
   Button,
-  InputNumber,
   Popconfirm,
   Space,
   Tag,
@@ -18,10 +17,13 @@ import {
   PlusOutlined,
   ImportOutlined,
   ReloadOutlined,
+  ShoppingCartOutlined,
+  MoneyCollectOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import type { PortfolioFund } from '../../types';
 
-const { Text } = Typography;
+const { Text, Link } = Typography;
 
 interface PortfolioFundTableProps {
   funds: PortfolioFund[];
@@ -29,8 +31,10 @@ interface PortfolioFundTableProps {
   onAdd: () => void;
   onImport: () => void;
   onDelete: (fundCodes: string[]) => void;
-  onUpdateShares: (fundCode: string, shares: number) => void;
   onRefresh: () => void;
+  onViewDetail: (fund: PortfolioFund) => void;
+  onBuy: (fund: PortfolioFund) => void;
+  onSell: (fund: PortfolioFund) => void;
 }
 
 const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
@@ -39,8 +43,10 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
   onAdd,
   onImport,
   onDelete,
-  onUpdateShares,
   onRefresh,
+  onViewDetail,
+  onBuy,
+  onSell,
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
@@ -105,6 +111,11 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       key: 'fund_name',
       width: 180,
       ellipsis: true,
+      render: (name: string, record: PortfolioFund) => (
+        <Link onClick={() => onViewDetail(record)} style={{ cursor: 'pointer' }}>
+          {name}
+        </Link>
+      ),
     },
     {
       title: '估算净值',
@@ -183,25 +194,13 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       ),
     },
     {
-      title: '持仓份额',
+      title: '当前份额',
       dataIndex: 'shares',
       key: 'shares',
-      width: 140,
+      width: 120,
       align: 'right' as const,
-      render: (value: number, record: PortfolioFund) => (
-        <InputNumber
-          min={0}
-          step={0.01}
-          precision={2}
-          defaultValue={value}
-          onBlur={(e) => {
-            const newValue = parseFloat(e.target.value);
-            if (!isNaN(newValue) && newValue !== value) {
-              onUpdateShares(record.fund_code, newValue);
-            }
-          }}
-          style={{ width: 120 }}
-        />
+      render: (value: number) => (
+        <Text>{formatNumber(value, 4)}</Text>
       ),
     },
     {
@@ -252,26 +251,54 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
     {
       title: '操作',
       key: 'action',
-      width: 80,
+      width: 180,
       fixed: 'right' as const,
       render: (_: unknown, record: PortfolioFund) => (
-        <Popconfirm
-          title="删除基金"
-          description={`确定要从组合中删除 ${record.fund_name} 吗？`}
-          onConfirm={() => onDelete([record.fund_code])}
-          okText="删除"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-        >
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
+        <Space size="small">
+          <Tooltip title="查看详情">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => onViewDetail(record)}
+            />
+          </Tooltip>
+          <Tooltip title="买入">
+            <Button
+              type="text"
+              size="small"
+              icon={<ShoppingCartOutlined />}
+              onClick={() => onBuy(record)}
+              style={{ color: '#52c41a' }}
+            />
+          </Tooltip>
+          <Tooltip title="卖出">
+            <Button
+              type="text"
+              size="small"
+              icon={<MoneyCollectOutlined />}
+              onClick={() => onSell(record)}
+              style={{ color: '#f5222d' }}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="删除基金"
+            description={`确定要从组合中删除 ${record.fund_name} 吗？`}
+            onConfirm={() => onDelete([record.fund_code])}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
           >
-            删除
-          </Button>
-        </Popconfirm>
+            <Tooltip title="删除">
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];

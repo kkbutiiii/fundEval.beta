@@ -6,7 +6,8 @@ import type {
   FundInfo, Fund, SearchResponse,
   AssetAllocationHistory, NavHistoryData, IntradayValuationData,
   FundEstimation, EstimationAPIResponse, EstimationSummary,
-  FundPortfolio, PortfolioFund, PortfolioSummary
+  FundPortfolio, PortfolioFund, PortfolioSummary,
+  FundTransaction, CreateTransactionRequest, TransactionSummary
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -217,6 +218,62 @@ class ApiService {
     const response = await this.client.post<{ success: boolean; added_count: number; skipped_count: number; message: string }>(
       `/portfolios/${portfolioId}/funds/batch`,
       { funds }
+    );
+    return response.data;
+  }
+
+  // =============================================================================
+  // Transaction API Methods
+  // =============================================================================
+
+  /**
+   * Create a buy/sell transaction for a fund in a portfolio.
+   */
+  async createTransaction(
+    portfolioId: string,
+    fundCode: string,
+    data: CreateTransactionRequest
+  ): Promise<FundTransaction> {
+    const response = await this.client.post<FundTransaction>(
+      `/portfolios/${portfolioId}/funds/${fundCode}/transactions`,
+      data
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all transactions for a portfolio.
+   */
+  async getPortfolioTransactions(portfolioId: string): Promise<FundTransaction[]> {
+    const response = await this.client.get<{ transactions: FundTransaction[]; total: number }>(
+      `/portfolios/${portfolioId}/transactions`
+    );
+    return response.data.transactions;
+  }
+
+  /**
+   * Get transactions for a specific fund in a portfolio.
+   */
+  async getFundTransactions(portfolioId: string, fundCode: string): Promise<FundTransaction[]> {
+    const response = await this.client.get<{ transactions: FundTransaction[]; total: number }>(
+      `/portfolios/${portfolioId}/funds/${fundCode}/transactions`
+    );
+    return response.data.transactions;
+  }
+
+  /**
+   * Delete a transaction.
+   */
+  async deleteTransaction(portfolioId: string, transactionId: number): Promise<void> {
+    await this.client.delete(`/portfolios/${portfolioId}/transactions/${transactionId}`);
+  }
+
+  /**
+   * Get transaction summary for a fund.
+   */
+  async getTransactionSummary(portfolioId: string, fundCode: string): Promise<TransactionSummary> {
+    const response = await this.client.get<TransactionSummary>(
+      `/portfolios/${portfolioId}/funds/${fundCode}/transaction-summary`
     );
     return response.data;
   }

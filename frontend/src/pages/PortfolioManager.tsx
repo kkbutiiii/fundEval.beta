@@ -13,8 +13,10 @@ import PortfolioFundTable from '../components/portfolio/PortfolioFundTable';
 import AddPortfolioModal from '../components/portfolio/AddPortfolioModal';
 import ImportFundsModal from '../components/portfolio/ImportFundsModal';
 import AddFundModal from '../components/portfolio/AddFundModal';
+import TransactionModal from '../components/portfolio/TransactionModal';
+import FundDetailDrawer from '../components/portfolio/FundDetailDrawer';
 import { api } from '../services/api';
-import type { PortfolioFund } from '../types';
+import type { PortfolioFund, CreateTransactionRequest } from '../types';
 
 const { Content, Sider } = Layout;
 
@@ -44,6 +46,12 @@ const PortfolioManager: React.FC = () => {
   const [addPortfolioVisible, setAddPortfolioVisible] = useState(false);
   const [importFundsVisible, setImportFundsVisible] = useState(false);
   const [addFundVisible, setAddFundVisible] = useState(false);
+
+  // Transaction states
+  const [selectedFund, setSelectedFund] = useState<PortfolioFund | null>(null);
+  const [transactionType, setTransactionType] = useState<'buy' | 'sell'>('buy');
+  const [transactionModalVisible, setTransactionModalVisible] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   // Handle portfolio creation
   const handleCreatePortfolio = async (name: string) => {
@@ -167,15 +175,35 @@ const PortfolioManager: React.FC = () => {
     }
   };
 
-  // Handle updating shares
-  const handleUpdateShares = async (fundCode: string, shares: number) => {
-    if (!currentPortfolio) return;
+  // Transaction handlers
+  const handleViewDetail = (fund: PortfolioFund) => {
+    setSelectedFund(fund);
+    setDrawerVisible(true);
+  };
+
+  const handleBuy = (fund: PortfolioFund) => {
+    setSelectedFund(fund);
+    setTransactionType('buy');
+    setTransactionModalVisible(true);
+  };
+
+  const handleSell = (fund: PortfolioFund) => {
+    setSelectedFund(fund);
+    setTransactionType('sell');
+    setTransactionModalVisible(true);
+  };
+
+  const handleTransactionSubmit = async (data: CreateTransactionRequest) => {
+    if (!currentPortfolio || !selectedFund) return;
 
     try {
-      await updateFundShares(currentPortfolio.id, fundCode, shares);
-      message.success('持仓份额已更新');
+      await api.createTransaction(currentPortfolio.id, selectedFund.fund_code, data);
+      message.success(`${data.transaction_type === 'buy' ? '买入' : '卖出'}成功`);
+      setTransactionModalVisible(false);
+      // Refresh data
+      setTimeout(() => refresh(), 100);
     } catch (error) {
-      message.error('更新份额失败');
+      message.error('交易失败');
       console.error(error);
     }
   };
@@ -235,8 +263,10 @@ const PortfolioManager: React.FC = () => {
                 onAdd={() => setAddFundVisible(true)}
                 onImport={() => setImportFundsVisible(true)}
                 onDelete={handleDeleteFunds}
-                onUpdateShares={handleUpdateShares}
                 onRefresh={refresh}
+                onViewDetail={handleViewDetail}
+                onBuy={handleBuy}
+                onSell={handleSell}
               />
             </>
           ) : (
@@ -281,6 +311,31 @@ const PortfolioManager: React.FC = () => {
         visible={addFundVisible}
         onCancel={() => setAddFundVisible(false)}
         onConfirm={handleAddFund}
+      />
+
+      {/* Transaction Modal */}
+      <TransactionModal
+        visible={transactionModalVisible}
+        fund={selectedFund}
+        type={transactionType}
+        onCancel={() => setTransactionModalVisible(false)}
+        onConfirm={handleTransactionSubmit}
+      />
+
+      {/* Fund Detail Drawer */}
+      <FundDetailDrawer
+        visible={drawerVisible}
+        fund={selectedFund}
+        portfolioId={currentPortfolio?.id || ''}
+        onClose={() => setDrawerVisible(false)}
+        onBuy={() => {
+          setTransactionType('buy');
+          setTransactionModalVisible(true);
+        }}
+        onSell={() => {
+          setTransactionType('sell');
+          setTransactionModalVisible(true);
+        }}
       />
     </Layout>
   );

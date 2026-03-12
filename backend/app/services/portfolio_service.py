@@ -8,11 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db_models.portfolio import PortfolioDB, PortfolioHoldingDB
+from app.db_models.transaction import FundTransactionDB
 from app.models.portfolio import (
     Portfolio, PortfolioCreate, PortfolioUpdate,
     PortfolioFund, PortfolioFundCreate, PortfolioFundUpdate,
     PortfolioDetail, PortfolioSummary, PortfolioFundWithValue,
     BatchAddFundsResponse
+)
+from app.models.transaction import (
+    FundTransaction, FundTransactionCreate, FundTransactionUpdate,
+    FundTransactionList, TransactionSummary
 )
 from app.services.estimation_api_client import get_estimation_client
 from app.db_models.fund_data import FundInfoDB
@@ -483,6 +488,225 @@ class PortfolioService:
             created_at=db_portfolio.created_at,
             updated_at=db_portfolio.updated_at,
             summary=summary
+        )
+
+    # ==========================================================================
+    # Transaction Methods
+    # ==========================================================================
+
+    @classmethod
+    async def create_transaction(
+        cls,
+        db: AsyncSession,
+        portfolio_id: str,
+        fund_code: str,
+        data: FundTransactionCreate,
+        fund_name: Optional[str] = None
+    ) -> Optional[FundTransaction]:
+        """Create a buy/sell transaction for a fund in a portfolio."""
+        # Check if portfolio exists
+        result = await db.execute(
+            select(PortfolioDB).where(PortfolioDB.id == portfolio_id)
+        )
+        if not result.scalar_one_or_none():
+            return None
+
+        # Check if fund exists in portfolio
+        result = await db.execute(
+            select(PortfolioHoldingDB).where(
+                PortfolioHoldingDB.portfolio_id == portfolio_id,
+                PortfolioHoldingDB.fund_code == fund_code
+            )
+        )
+        holding = result.scalar_one_or_none()
+        if not holding:
+            return None
+
+        # Calculate shares/amount if one is missing
+        if data.shares is not None and data.amount is None:
+            amount = round(data.shares * data.nav, 2)
+            shares = data.shares
+        elif data.amount is not None and data.shares is None:
+            shares = round(data.amount / data.nav, 4)
+            amount = data.amount
+        else:
+            shares = data.shares or 0
+            amount = data.amount or 0
+
+        # For sell transactions, check if enough shares
+        if data.transaction_type == 'sell':
+            # Get current total shares
+            result = await db.execute(
+                select(FundTransactionDB).where(
+                    FundTransactionDB.portfolio_id == portfolio_id,
+                    FundTransactionDB.fund_code == fund_code
+                )
+            )
+            transactions = result.scalars().all()
+            total_shares = sum(
+                t.shares if t.transaction_type == 'buy' else -t.shares
+                for t in transactions
+            )
+            # Add the initial holding shares as first buy
+            total_shares += holding.shares
+
+            if shares > total_shares:
+                raise ValueError(f"Insufficient shares for sale. Available: {total_shares}, Requested: {shares}")
+
+        # Create transaction
+        transaction = FundTransactionDB(
+            portfolio_id=portfolio_id,
+            fund_code=fund_code,
+            fund_name=fund_name or holding.fund_name,
+            transaction_type=data.transaction_type,
+            transaction_date=data.transaction_date,
+            nav=data.nav,
+            shares=shares,
+            amount=amount,
+            created_at=datetime.utcnow()
+        )
+        db.add(transaction)
+
+        # Update holding shares
+        if data.transaction_type == 'buy':
+            holding.shares += shares
+        else:  # sell
+            holding.shares -= shares
+
+        holding.updated_at = datetime.utcnow()
+
+        # Update portfolio updated_at
+        result = await db.execute(
+            select(PortfolioDB).where(PortfolioDB.id == portfolio_id)
+        )
+        portfolio = result.scalar_one()
+        portfolio.updated_at = datetime.utcnow()
+
+        await db.flush()
+
+        return FundTransaction.model_validate(transaction)
+
+    @classmethod
+    async def get_transactions(
+        cls,
+        db: AsyncSession,
+        portfolio_id: str,
+        fund_code: Optional[str] = None
+    ) -> FundTransactionList:
+        """Get transactions for a portfolio or specific fund."""
+        query = select(FundTransactionDB).where(
+            FundTransactionDB.portfolio_id == portfolio_id
+        )
+
+        if fund_code:
+            query = query.where(FundTransactionDB.fund_code == fund_code)
+
+        query = query.order_by(FundTransactionDB.transaction_date.desc())
+
+        result = await db.execute(query)
+        transactions = result.scalars().all()
+
+        return FundTransactionList(
+            transactions=[FundTransaction.model_validate(t) for t in transactions],
+            total=len(transactions)
+        )
+
+    @classmethod
+    async def delete_transaction(
+        cls,
+        db: AsyncSession,
+        portfolio_id: str,
+        transaction_id: int
+    ) -> bool:
+        """Delete a transaction and adjust holding shares."""
+        result = await db.execute(
+            select(FundTransactionDB).where(
+                FundTransactionDB.id == transaction_id,
+                FundTransactionDB.portfolio_id == portfolio_id
+            )
+        )
+        transaction = result.scalar_one_or_none()
+        if not transaction:
+            return False
+
+        # Adjust holding shares
+        result = await db.execute(
+            select(PortfolioHoldingDB).where(
+                PortfolioHoldingDB.portfolio_id == portfolio_id,
+                PortfolioHoldingDB.fund_code == transaction.fund_code
+            )
+        )
+        holding = result.scalar_one_or_none()
+
+        if holding:
+            if transaction.transaction_type == 'buy':
+                holding.shares -= transaction.shares
+            else:  # sell
+                holding.shares += transaction.shares
+            holding.updated_at = datetime.utcnow()
+
+        # Delete transaction
+        await db.delete(transaction)
+
+        # Update portfolio updated_at
+        result = await db.execute(
+            select(PortfolioDB).where(PortfolioDB.id == portfolio_id)
+        )
+        portfolio = result.scalar_one_or_none()
+        if portfolio:
+            portfolio.updated_at = datetime.utcnow()
+
+        await db.flush()
+        return True
+
+    @classmethod
+    async def get_transaction_summary(
+        cls,
+        db: AsyncSession,
+        portfolio_id: str,
+        fund_code: str
+    ) -> Optional[TransactionSummary]:
+        """Get transaction summary for a specific fund."""
+        result = await db.execute(
+            select(PortfolioHoldingDB).where(
+                PortfolioHoldingDB.portfolio_id == portfolio_id,
+                PortfolioHoldingDB.fund_code == fund_code
+            )
+        )
+        holding = result.scalar_one_or_none()
+        if not holding:
+            return None
+
+        result = await db.execute(
+            select(FundTransactionDB).where(
+                FundTransactionDB.portfolio_id == portfolio_id,
+                FundTransactionDB.fund_code == fund_code
+            )
+        )
+        transactions = result.scalars().all()
+
+        total_bought_shares = sum(
+            t.shares for t in transactions if t.transaction_type == 'buy'
+        )
+        total_sold_shares = sum(
+            t.shares for t in transactions if t.transaction_type == 'sell'
+        )
+        total_bought_amount = sum(
+            t.amount for t in transactions if t.transaction_type == 'buy'
+        )
+        total_sold_amount = sum(
+            t.amount for t in transactions if t.transaction_type == 'sell'
+        )
+
+        return TransactionSummary(
+            fund_code=fund_code,
+            fund_name=holding.fund_name,
+            total_bought_shares=total_bought_shares,
+            total_sold_shares=total_sold_shares,
+            current_shares=holding.shares,
+            total_bought_amount=total_bought_amount,
+            total_sold_amount=total_sold_amount,
+            net_investment=total_bought_amount - total_sold_amount
         )
 
 

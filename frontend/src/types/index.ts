@@ -250,3 +250,42 @@ export interface PortfolioSummary {
   total_latest_growth: number;      // Total latest growth (weighted)
   fund_count: number;               // Number of funds
 }
+
+// =============================================================================
+// Fund Transaction Types
+// =============================================================================
+
+/** Single buy/sell transaction for a fund */
+export interface FundTransaction {
+  id: number;
+  portfolio_id: string;
+  fund_code: string;
+  fund_name: string;
+  transaction_type: 'buy' | 'sell';
+  transaction_date: string;  // YYYY-MM-DD
+  nav: number;              // Confirmation NAV
+  shares: number;           // Number of shares
+  amount: number;           // Transaction amount
+  created_at: string;
+}
+
+/** Request to create a new transaction */
+export interface CreateTransactionRequest {
+  transaction_type: 'buy' | 'sell';
+  transaction_date: string;  // YYYY-MM-DD
+  nav: number;
+  shares?: number;           // Either shares or amount must be provided
+  amount?: number;
+}
+
+/** Summary of transactions for a fund */
+export interface TransactionSummary {
+  fund_code: string;
+  fund_name: string;
+  total_bought_shares: number;
+  total_sold_shares: number;
+  current_shares: number;
+  total_bought_amount: number;
+  total_sold_amount: number;
+  net_investment: number;
+}
