@@ -33,6 +33,9 @@ class PortfolioFundWithValue(PortfolioFund):
     latest_growth: Optional[float] = Field(None, description="Latest change percent (%)")
     estimated_value: Optional[float] = Field(None, description="Estimated value = shares * estimated_nav")
     latest_value: Optional[float] = Field(None, description="Latest value = shares * latest_nav")
+    # Time fields
+    estimation_time: Optional[str] = Field(None, description="Estimation time (e.g., '03/11 15:30')")
+    nav_date: Optional[str] = Field(None, description="NAV date (e.g., '03/10')")
 
 
 class PortfolioBase(BaseModel):

@@ -71,6 +71,25 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
     return value >= 0 ? '#cf1322' : '#3f8600';
   };
 
+  // Format nav_date to mm-dd for display in column header
+  const formatNavDate = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    // Handle both YYYY-MM-DD and MM-DD formats
+    if (dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[1]}-${parts[2]}`; // YYYY-MM-DD -> MM-DD
+      }
+      if (parts.length === 2) {
+        return dateStr; // Already MM-DD
+      }
+    }
+    return '';
+  };
+
+  // Get the nav_date from the first fund (assuming all funds have the same nav_date)
+  const navDateLabel = funds.length > 0 ? formatNavDate(funds[0].nav_date) : '';
+
   const columns = [
     {
       title: '基金代码',
@@ -93,7 +112,16 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       key: 'estimated_nav',
       width: 110,
       align: 'right' as const,
-      render: (value: number) => formatNumber(value, 4),
+      render: (value: number, record: PortfolioFund) => (
+        <div>
+          <div>{formatNumber(value, 4)}</div>
+          {record.estimation_time && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.estimation_time}
+            </Text>
+          )}
+        </div>
+      ),
     },
     {
       title: '估算涨跌',
@@ -101,14 +129,32 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       key: 'estimated_growth',
       width: 100,
       align: 'right' as const,
-      render: (value: number) => (
-        <Tag color={getGrowthColor(value)} style={{ fontSize: 13 }}>
-          {formatPercent(value)}
-        </Tag>
+      render: (value: number, record: PortfolioFund) => (
+        <div>
+          <Tag color={getGrowthColor(value)} style={{ fontSize: 13 }}>
+            {formatPercent(value)}
+          </Tag>
+          {record.estimation_time && (
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {record.estimation_time}
+              </Text>
+            </div>
+          )}
+        </div>
       ),
     },
     {
-      title: '最新净值',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>最新净值</div>
+          {navDateLabel && (
+            <div style={{ fontSize: 12, color: '#999', fontWeight: 'normal' }}>
+              {navDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'latest_nav',
       key: 'latest_nav',
       width: 110,
@@ -116,7 +162,16 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       render: (value: number) => formatNumber(value, 4),
     },
     {
-      title: '最新涨跌',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>最新涨跌</div>
+          {navDateLabel && (
+            <div style={{ fontSize: 12, color: '#999', fontWeight: 'normal' }}>
+              {navDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'latest_growth',
       key: 'latest_growth',
       width: 100,
@@ -155,12 +210,28 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       key: 'estimated_value',
       width: 130,
       align: 'right' as const,
-      render: (value: number) => (
-        <Text strong>{formatCurrency(value)}</Text>
+      render: (value: number, record: PortfolioFund) => (
+        <div>
+          <div><Text strong>{formatCurrency(value)}</Text></div>
+          {record.estimation_time && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.estimation_time}
+            </Text>
+          )}
+        </div>
       ),
     },
     {
-      title: '最新市值',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>最新市值</div>
+          {navDateLabel && (
+            <div style={{ fontSize: 12, color: '#999', fontWeight: 'normal' }}>
+              {navDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'latest_value',
       key: 'latest_value',
       width: 130,

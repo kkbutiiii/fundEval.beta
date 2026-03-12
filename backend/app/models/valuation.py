@@ -95,6 +95,8 @@ class EstimationSummary(BaseModel):
     latest_nav: Optional[float] = Field(None, description="Latest estimated NAV")
     latest_growth: Optional[float] = Field(None, description="Latest growth rate (%)")
     previous_nav: Optional[float] = Field(None, description="Previous trading day NAV")
+    actual_nav: Optional[float] = Field(None, description="Actual NAV (yesterday's official NAV)")
+    actual_growth: Optional[float] = Field(None, description="Actual growth rate (%)")
     last_time: Optional[str] = Field(None, description="Last update time")
     data_count: int = Field(0, description="Number of data points today")
 

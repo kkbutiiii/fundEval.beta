@@ -128,14 +128,15 @@ class EstimationAPIClient:
         params = {"limit": limit}
         data = await self._make_request("/api/v1/fund/latest", params=params)
 
-        funds = data.get("funds", [])
+        funds = data.get("data", [])  # API returns "data" not "funds"
         return [
             EstimationSummary(
                 code=item.get("code", ""),
                 name=item.get("name"),
                 date=item.get("date", 0),
-                latest_nav=item.get("latest_nav"),
-                latest_growth=item.get("latest_growth"),
+                latest_nav=item.get("nav"),  # API returns "nav" (estimate_nav)
+                latest_growth=item.get("growth"),  # API returns "growth" (estimate_growth)
+                actual_nav=item.get("actual_nav"),  # API returns "actual_nav" (yesterday's official NAV)
                 last_time=item.get("last_time"),
                 data_count=item.get("data_count", 0)
             )
@@ -184,7 +185,9 @@ class EstimationAPIClient:
 
     async def get_batch_estimations(self, fund_codes: List[str]) -> List[EstimationSummary]:
         """
-        批量获取基金最新估值
+        批量获取基金最新估值（包含实际净值）
+
+        使用 /api/v1/fund/latest 端点获取数据，包含 actual_nav（昨日官方净值）
 
         Args:
             fund_codes: 基金代码列表
@@ -193,25 +196,73 @@ class EstimationAPIClient:
             List[EstimationSummary]: 估值摘要列表（仅包含成功获取的数据）
         """
         results = []
-        for code in fund_codes:
-            try:
-                estimation = await self.get_fund_estimation(code)
-                if estimation.data:
-                    latest = estimation.data[-1]
-                    results.append(EstimationSummary(
-                        code=estimation.code,
-                        name=estimation.name,
-                        date=estimation.date,
-                        latest_nav=latest.nav,
-                        latest_growth=latest.growth,
-                        last_time=estimation.last_time or latest.time,
-                        data_count=estimation.count
-                    ))
-            except EstimationAPIError as e:
-                logger.warning(f"Failed to get estimation for {code}: {e}")
-                # 继续处理下一个基金
-                continue
+
+        # 首先获取所有基金的最新估值（包含 actual_nav）
+        try:
+            # 获取足够多的数据以确保包含所有请求的基金
+            all_estimations = await self.get_latest_estimations(limit=max(100, len(fund_codes) * 2))
+            estimation_dict = {e.code: e for e in all_estimations}
+
+            # 筛选出请求的基金
+            for code in fund_codes:
+                if code in estimation_dict:
+                    results.append(estimation_dict[code])
+                else:
+                    # 如果不在列表中，尝试单独获取
+                    try:
+                        estimation = await self.get_fund_estimation(code)
+                        if estimation.data:
+                            latest = estimation.data[-1]
+                            results.append(EstimationSummary(
+                                code=estimation.code,
+                                name=estimation.name,
+                                date=estimation.date,
+                                latest_nav=latest.nav,
+                                latest_growth=latest.growth,
+                                last_time=estimation.last_time or latest.time,
+                                data_count=estimation.count
+                            ))
+                    except EstimationAPIError as e:
+                        logger.warning(f"Failed to get estimation for {code}: {e}")
+        except Exception as e:
+            logger.error(f"Error fetching batch estimations: {e}")
+
         return results
+
+    async def get_fund_with_actual_nav(self, fund_code: str) -> Optional[EstimationSummary]:
+        """
+        获取单个基金的估值（包含 actual_nav）
+
+        Args:
+            fund_code: 基金代码
+
+        Returns:
+            EstimationSummary 或 None
+        """
+        try:
+            # 尝试从 latest 端点获取
+            all_estimations = await self.get_latest_estimations(limit=1000)
+            for est in all_estimations:
+                if est.code == fund_code:
+                    return est
+
+            # 如果找不到，从 estimation 端点获取（不含 actual_nav）
+            estimation = await self.get_fund_estimation(fund_code)
+            if estimation.data:
+                latest = estimation.data[-1]
+                return EstimationSummary(
+                    code=estimation.code,
+                    name=estimation.name,
+                    date=estimation.date,
+                    latest_nav=latest.nav,
+                    latest_growth=latest.growth,
+                    last_time=estimation.last_time or latest.time,
+                    data_count=estimation.count
+                )
+        except EstimationAPIError as e:
+            logger.warning(f"Failed to get fund with actual NAV for {fund_code}: {e}")
+
+        return None
 
 
 # 全局客户端实例

@@ -29,6 +29,12 @@ ENV/
 # Logs
 *.log
 
+# Runtime files
+*.pid
+
+# OMC
+.omc/
+
 # Claude
 .claude/
 

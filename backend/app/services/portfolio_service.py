@@ -1,7 +1,7 @@
 """
 Portfolio service for CRUD operations.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,10 @@ from app.models.portfolio import (
     BatchAddFundsResponse
 )
 from app.services.estimation_api_client import get_estimation_client
+from app.db_models.fund_data import FundInfoDB
+from app.services.fund_data_db_service import fund_data_db_service
+from sqlalchemy import select as sa_select
+import asyncio
 
 
 class PortfolioService:
@@ -314,7 +318,7 @@ class PortfolioService:
         if not db_portfolio:
             return None
 
-        # Get real-time data for all funds
+        # Get real-time estimation data for all funds
         fund_codes = [h.fund_code for h in db_portfolio.holdings]
         estimations = {}
 
@@ -324,8 +328,49 @@ class PortfolioService:
                 estimations_list = await client.get_batch_estimations(fund_codes)
                 estimations = {e.code: e for e in estimations_list}
             except Exception as e:
-                # Log error but continue without real-time data
                 print(f"Error fetching estimations: {e}")
+
+        # Get official NAV data from TTJJ for all funds (for accurate daily_change)
+        # 【关键】最新净值必须来自天天基金网官方数据（昨日净值），而不是估算服务
+        official_nav_data = {}
+        if fund_codes:
+            from app.services.ttjj_client import ttjj_client
+
+            # 逐个获取基金详情，确保每个基金都有官方净值数据
+            for code in fund_codes:
+                detail = None
+                try:
+                    # 使用同步方法的异步包装
+                    detail = await asyncio.to_thread(ttjj_client.get_fund_detail_info, code)
+                except Exception as e:
+                    print(f"Error fetching fund detail for {code}: {e}")
+
+                if detail and detail.nav:
+                    official_nav_data[code] = {
+                        'nav': detail.nav,  # 昨日官方单位净值
+                        'nav_date': detail.nav_date,
+                        'daily_change': detail.daily_change,  # 昨日日涨跌幅
+                        'fund_name': detail.fund_name
+                    }
+                    print(f"[TTJJ] Got official NAV for {code}: nav={detail.nav}, date={detail.nav_date}, change={detail.daily_change}%")
+                else:
+                    print(f"[TTJJ] Failed to get official NAV for {code}, detail={detail}")
+
+            # Fallback: 从数据库获取缓存的净值数据（仅当TTJJ失败时）
+            for code in fund_codes:
+                if code not in official_nav_data or official_nav_data[code].get('nav') is None:
+                    try:
+                        db_fund_info = await fund_data_db_service.get_fund_info_from_db(code, db)
+                        if db_fund_info and db_fund_info.nav:
+                            official_nav_data[code] = {
+                                'nav': db_fund_info.nav,
+                                'nav_date': db_fund_info.nav_date,
+                                'daily_change': None,  # 数据库可能不缓存日涨跌幅
+                                'fund_name': db_fund_info.fund_name
+                            }
+                            print(f"[DB Fallback] Using cached NAV for {code}: {db_fund_info.nav}")
+                    except Exception as e:
+                        print(f"Error fetching cached NAV from DB for {code}: {e}")
 
         # Build funds with values
         funds_with_values = []
@@ -336,15 +381,57 @@ class PortfolioService:
 
         for holding in db_portfolio.holdings:
             estimation = estimations.get(holding.fund_code)
+            official = official_nav_data.get(holding.fund_code, {})
+
+            # Estimation data (from estimation service)
+            estimated_nav = estimation.latest_nav if estimation else None
+            estimated_growth = estimation.latest_growth if estimation else None
+
+            # Official NAV data (from database - 昨日收盘净值)
+            official_nav = official.get('nav')
+            official_nav_date = official.get('nav_date')
+
+            # Format time fields
+            estimation_time = None
+            nav_date_str = None
+
+            if estimation and estimation.last_time:
+                try:
+                    if len(estimation.last_time) > 10:
+                        dt = datetime.strptime(estimation.last_time, "%Y-%m-%d %H:%M:%S")
+                        estimation_time = dt.strftime("%m/%d %H:%M")
+                    else:
+                        estimation_time = estimation.last_time[:5]
+                except:
+                    estimation_time = estimation.last_time
+
+            if official_nav_date:
+                try:
+                    # nav_date is string like "2026-03-10"
+                    if isinstance(official_nav_date, str):
+                        dt = datetime.strptime(official_nav_date, "%Y-%m-%d")
+                        nav_date_str = dt.strftime("%m/%d")
+                    else:
+                        nav_date_str = official_nav_date.strftime("%m/%d")
+                except:
+                    nav_date_str = None
+
+            # Official daily change from TTJJ (日涨跌幅)
+            official_growth = official.get('daily_change')
 
             fund_with_value = PortfolioFundWithValue(
                 fund_code=holding.fund_code,
                 fund_name=holding.fund_name,
                 shares=holding.shares,
-                estimated_nav=estimation.latest_nav if estimation else None,
-                estimated_growth=estimation.latest_growth if estimation else None,
-                latest_nav=estimation.latest_nav if estimation else None,
-                latest_growth=estimation.latest_growth if estimation else None,
+                # 估算数据（实时估值）
+                estimated_nav=estimated_nav,
+                estimated_growth=estimated_growth,
+                # 最新净值（官方昨日收盘）
+                latest_nav=official_nav,
+                latest_growth=official_growth,
+                # 时间字段
+                estimation_time=estimation_time,
+                nav_date=nav_date_str,
             )
 
             # Calculate values

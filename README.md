@@ -100,6 +100,7 @@ npm run dev -- --port 50888
 | 前端 | http://localhost:50888 | Vite 开发服务器 |
 | 主后端 API | http://localhost:50801/docs | FastAPI 文档 |
 | 估值服务 API | http://localhost:50802/docs | FastAPI 文档 |
+| API 详情文档 | [front-api-details.md](./front-api-details.md) | 前端页面与 API 端口映射文档 |
 
 ## 端口配置
 
@@ -137,7 +138,11 @@ npm install
 ### fundEval 主应用
 - **前端**: React + TypeScript + Vite + Ant Design
 - **后端**: FastAPI + SQLAlchemy + SQLite
-- **功能**: 基金搜索、详情查看、组合管理、自选列表
+- **功能**: 基金搜索、详情查看、组合管理、自选列表、净值日期显示
+
+### 最近更新
+- **Portfolio 页面**: 添加净值日期显示，在"最新净值"和"最新涨跌"列标题显示日期标识
+- **API 文档**: 添加前端页面与 API 端口映射文档 [front-api-details.md](./front-api-details.md)
 
 ### fund_estimation_system 估值服务
 - **框架**: FastAPI + Uvicorn

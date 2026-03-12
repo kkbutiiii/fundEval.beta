@@ -130,9 +130,16 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
           label="持仓份额"
           rules={[
             { required: true, message: '请输入持仓份额' },
-            { type: 'number', min: 0, message: '份额必须大于等于0' },
+            {
+              validator: (_, value) => {
+                const num = parseFloat(value);
+                if (isNaN(num) || num <= 0) {
+                  return Promise.reject(new Error('份额必须大于0'));
+                }
+                return Promise.resolve();
+              },
+            },
           ]}
-          initialValue={0}
         >
           <Input type="number" step="0.01" placeholder="请输入持仓份额" />
         </Form.Item>
