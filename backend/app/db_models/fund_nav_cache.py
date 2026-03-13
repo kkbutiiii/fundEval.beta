@@ -4,7 +4,7 @@ Caches historical NAV data for funds to avoid repeated API calls.
 """
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, Numeric, Boolean, DateTime, UniqueConstraint
-from app.db.database import Base
+from app.database import Base
 
 
 class FundNavCacheDB(Base):

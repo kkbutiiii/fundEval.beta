@@ -12637,7 +12637,7 @@
   {
     "fund_code": "002534",
     "fund_name": "华安稳固收益债券A",
-    "fund_type": "债券型-混合二级",
+    "fund_type": "债券型-混合一级",
     "pinyin": "HAWGSYZQA",
     "pinyin_full": ""
   },
@@ -88929,16 +88929,16 @@
   },
   {
     "fund_code": "016185",
-    "fund_name": "广发中证全指电力ETF发起式联接A",
+    "fund_name": "广发电力ETF联接A",
     "fund_type": "指数型-股票",
-    "pinyin": "GFZZQZDLETFFQSLJA",
+    "pinyin": "GFDLETFLJA",
     "pinyin_full": ""
   },
   {
     "fund_code": "016186",
-    "fund_name": "广发中证全指电力ETF发起式联接C",
+    "fund_name": "广发电力ETF联接C",
     "fund_type": "指数型-股票",
-    "pinyin": "GFZZQZDLETFFQSLJC",
+    "pinyin": "GFDLETFLJC",
     "pinyin_full": ""
   },
   {
@@ -119386,16 +119386,16 @@
   },
   {
     "fund_code": "020903",
-    "fund_name": "广发中证工程机械ETF发起式联接A",
+    "fund_name": "广发工程机械ETF联接A",
     "fund_type": "指数型-股票",
-    "pinyin": "GFZZGCJXETFFQSLJA",
+    "pinyin": "GFGCJXETFLJA",
     "pinyin_full": ""
   },
   {
     "fund_code": "020904",
-    "fund_name": "广发中证工程机械ETF发起式联接C",
+    "fund_name": "广发工程机械ETF联接C",
     "fund_type": "指数型-股票",
-    "pinyin": "GFZZGCJXETFFQSLJC",
+    "pinyin": "GFGCJXETFLJC",
     "pinyin_full": ""
   },
   {
@@ -128172,7 +128172,7 @@
   {
     "fund_code": "022208",
     "fund_name": "华安稳固收益债券E",
-    "fund_type": "债券型-混合二级",
+    "fund_type": "债券型-混合一级",
     "pinyin": "HAWGSYZQE",
     "pinyin_full": ""
   },
@@ -152026,6 +152026,20 @@
     "pinyin_full": ""
   },
   {
+    "fund_code": "025785",
+    "fund_name": "中金科创优选混合发起A",
+    "fund_type": "",
+    "pinyin": "ZJKCYXHHFQA",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "025786",
+    "fund_name": "中金科创优选混合发起C",
+    "fund_type": "",
+    "pinyin": "ZJKCYXHHFQC",
+    "pinyin_full": ""
+  },
+  {
     "fund_code": "025787",
     "fund_name": "大成港股恒信混合(QDII)",
     "fund_type": "QDII-混合偏股",
@@ -155072,16 +155086,16 @@
   },
   {
     "fund_code": "026265",
-    "fund_name": "广发国证新能源电池ETF发起式联接A",
+    "fund_name": "广发储能电池EIF联接A",
     "fund_type": "指数型-股票",
-    "pinyin": "GFGZXNYDCETFFQSLJA",
+    "pinyin": "GFCNDCEIFLJA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026266",
-    "fund_name": "广发国证新能源电池ETF发起式联接C",
+    "fund_name": "广发储能电池EIF联接C",
     "fund_type": "指数型-股票",
-    "pinyin": "GFGZXNYDCETFFQSLJC",
+    "pinyin": "GFCNDCEIFLJC",
     "pinyin_full": ""
   },
   {
@@ -156114,6 +156128,20 @@
     "pinyin_full": ""
   },
   {
+    "fund_code": "026466",
+    "fund_name": "西部利得智享量化选股混合A",
+    "fund_type": "",
+    "pinyin": "XBLDZXLHXGHHA",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026467",
+    "fund_name": "西部利得智享量化选股混合C",
+    "fund_type": "",
+    "pinyin": "XBLDZXLHXGHHC",
+    "pinyin_full": ""
+  },
+  {
     "fund_code": "026468",
     "fund_name": "山证资管数字经济锐选股票发起式A",
     "fund_type": "股票型",
@@ -156534,6 +156562,20 @@
     "pinyin_full": ""
   },
   {
+    "fund_code": "026542",
+    "fund_name": "鑫元中证A500指数A",
+    "fund_type": "",
+    "pinyin": "XYZZA500ZSA",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026543",
+    "fund_name": "鑫元中证A500指数C",
+    "fund_type": "",
+    "pinyin": "XYZZA500ZSC",
+    "pinyin_full": ""
+  },
+  {
     "fund_code": "026544",
     "fund_name": "平安中证卫星产业指数E",
     "fund_type": "指数型-股票",
@@ -156727,6 +156769,13 @@
     "fund_name": "东方红货币F",
     "fund_type": "货币型-普通货币",
     "pinyin": "DFHHBF",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026587",
+    "fund_name": "光大保德信安选平衡养老目标三年持有混合(FOF)Y",
+    "fund_type": "",
+    "pinyin": "GDBDXAXPHYLMBSNCYHHFOFY",
     "pinyin_full": ""
   },
   {
@@ -157887,14 +157936,14 @@
   {
     "fund_code": "026826",
     "fund_name": "浦银安盛盈泰多元配置3个月持有混合(FOF)A",
-    "fund_type": "FOF-均衡型",
+    "fund_type": "FOF-稳健型",
     "pinyin": "PYASYTDYPZ3GYCYHHFOFA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026827",
     "fund_name": "浦银安盛盈泰多元配置3个月持有混合(FOF)C",
-    "fund_type": "FOF-均衡型",
+    "fund_type": "FOF-稳健型",
     "pinyin": "PYASYTDYPZ3GYCYHHFOFC",
     "pinyin_full": ""
   },
@@ -158158,6 +158207,20 @@
     "pinyin_full": ""
   },
   {
+    "fund_code": "026888",
+    "fund_name": "创金合信上证科创板综合指数增强A",
+    "fund_type": "",
+    "pinyin": "CJHXSZKCBZHZSZQA",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "026889",
+    "fund_name": "创金合信上证科创板综合指数增强C",
+    "fund_type": "",
+    "pinyin": "CJHXSZKCBZHZSZQC",
+    "pinyin_full": ""
+  },
+  {
     "fund_code": "026890",
     "fund_name": "兴合产业优选混合发起式A",
     "fund_type": "混合型-偏股",
@@ -158202,14 +158265,14 @@
   {
     "fund_code": "026947",
     "fund_name": "东方红周期研选混合发起A",
-    "fund_type": "",
+    "fund_type": "混合型-偏股",
     "pinyin": "DFHZQYXHHFQA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026948",
     "fund_name": "东方红周期研选混合发起C",
-    "fund_type": "",
+    "fund_type": "混合型-偏股",
     "pinyin": "DFHZQYXHHFQC",
     "pinyin_full": ""
   },
@@ -158335,7 +158398,7 @@
   {
     "fund_code": "040019",
     "fund_name": "华安稳固收益债券C",
-    "fund_type": "债券型-混合二级",
+    "fund_type": "债券型-混合一级",
     "pinyin": "HAWGSYZQC",
     "pinyin_full": ""
   },
@@ -160689,6 +160752,13 @@
     "fund_name": "富国中证港股通信息技术综合ETF",
     "fund_type": "指数型-股票",
     "pinyin": "FGZZGGTXXJSZHETF",
+    "pinyin_full": ""
+  },
+  {
+    "fund_code": "159199",
+    "fund_name": "平安国证石油天然气ETF",
+    "fund_type": "指数型-股票",
+    "pinyin": "PAGZSYTRQETF",
     "pinyin_full": ""
   },
   {

@@ -740,9 +740,17 @@ class PortfolioService:
         cls,
         db: AsyncSession,
         portfolio_id: str,
-        period: str = '30d'
+        period: str = '30d',
+        use_cache: bool = True
     ) -> Optional[dict]:
-        """Get portfolio historical value and return data."""
+        """Get portfolio historical value and return data.
+
+        Args:
+            db: Database session
+            portfolio_id: Portfolio ID
+            period: Time period ('30d', '60d', '6m', 'ytd')
+            use_cache: Whether to use cache (default True)
+        """
         # Check if portfolio exists
         result = await db.execute(
             select(PortfolioDB).where(PortfolioDB.id == portfolio_id)
@@ -777,6 +785,36 @@ class PortfolioService:
                 'data': []
             }
 
+        # Try to get from cache first
+        cached_data = []
+        if use_cache:
+            cached_data = await cls._get_cached_portfolio_returns(db, portfolio_id, start_date, end_date)
+            if cached_data:
+                print(f"[Cache Hit] Portfolio {portfolio_id}: {len(cached_data)} days cached")
+
+        # Build set of cached dates
+        cached_dates = {item['date'] for item in cached_data}
+
+        # Generate all dates in range
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date.strftime('%Y-%m-%d'))
+            current_date += timedelta(days=1)
+
+        # Find missing dates
+        missing_dates = [d for d in all_dates if d not in cached_dates]
+
+        if not missing_dates:
+            # All data is cached, return cached data
+            return {
+                'portfolio_id': portfolio_id,
+                'period': period,
+                'data': sorted(cached_data, key=lambda x: x['date'])
+            }
+
+        print(f"[Cache Miss] Portfolio {portfolio_id}: {len(missing_dates)} days need calculation")
+
         # Get all transactions for the period
         result = await db.execute(
             select(FundTransactionDB).where(
@@ -795,9 +833,9 @@ class PortfolioService:
         # Structure: {date_str: {'shares': {fund_code: shares}, 'values': {fund_code: market_value}, 'costs': {}, 'cash_flow': {}}}
         daily_data = {}
 
-        current_date = start_date
-        while current_date <= end_date:
-            date_str = current_date.strftime('%Y-%m-%d')
+        # Only calculate for missing dates
+        for date_str in sorted(missing_dates):
+            current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             daily_data[date_str] = {'shares': {}, 'values': {}, 'costs': {}, 'cash_flow': 0, 'is_estimated': False}
 
             # Calculate cash flow for this date (buy = negative, sell = positive)
@@ -858,8 +896,6 @@ class PortfolioService:
                                 daily_data[date_str]['is_estimated'] = True
                     except Exception as e:
                         print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
-
-            current_date += timedelta(days=1)
 
         # Second pass: Calculate returns and profits
         history_data = []
@@ -941,10 +977,19 @@ class PortfolioService:
 
             history_data.append(history_item)
 
+        # Save newly calculated data to cache
+        if history_data:
+            await cls._save_portfolio_returns_to_cache(db, portfolio_id, history_data)
+            print(f"[Cache Saved] Portfolio {portfolio_id}: {len(history_data)} days saved to cache")
+
+        # Merge cached data and newly calculated data
+        all_data = cached_data + history_data
+
+        # Sort by date and return
         return {
             'portfolio_id': portfolio_id,
             'period': period,
-            'data': history_data
+            'data': sorted(all_data, key=lambda x: x['date'])
         }
 
     @classmethod
@@ -956,6 +1001,8 @@ class PortfolioService:
     ) -> dict:
         """Get NAV for a fund on a specific date with fallback to previous trading day.
 
+        Uses cache first, then falls back to Wind API.
+
         Returns:
             dict: {
                 'nav': float or None,
@@ -964,7 +1011,12 @@ class PortfolioService:
             }
         """
         try:
-            # Try to get NAV for the exact date first (from Wind API or cache)
+            # 1. Try to get from cache first
+            cached = await cls._get_cached_nav(db, fund_code, date)
+            if cached:
+                return cached
+
+            # 2. Try to get NAV for the exact date from Wind API
             from app.services.wind_client import wind_client
             date_str = date.strftime('%Y%m%d')
 
@@ -976,17 +1028,36 @@ class PortfolioService:
             )
 
             if nav_history and len(nav_history) > 0:
-                return {
-                    'nav': nav_history[0].nav,
+                nav = nav_history[0].nav
+                result = {
+                    'nav': nav,
                     'is_estimated': False,
                     'actual_date': date.strftime('%Y-%m-%d')
                 }
+                # Save to cache
+                await cls._save_nav_to_cache(db, fund_code, date, nav, False, None)
+                return result
 
-            # If not found, look back up to 10 days for the nearest trading day
+            # 3. If not found, look back up to 10 days for the nearest trading day
             for i in range(1, 10):
                 prev_date = date - timedelta(days=i)
-                prev_date_str = prev_date.strftime('%Y%m%d')
 
+                # Check cache first for previous date
+                cached_prev = await cls._get_cached_nav(db, fund_code, prev_date)
+                if cached_prev:
+                    # Save the estimated value for current date to cache
+                    await cls._save_nav_to_cache(
+                        db, fund_code, date,
+                        cached_prev['nav'], True, prev_date
+                    )
+                    return {
+                        'nav': cached_prev['nav'],
+                        'is_estimated': True,
+                        'actual_date': prev_date.strftime('%Y-%m-%d')
+                    }
+
+                # Try Wind API for previous date
+                prev_date_str = prev_date.strftime('%Y%m%d')
                 nav_history = await asyncio.to_thread(
                     wind_client.get_nav_history,
                     fund_code,
@@ -995,9 +1066,13 @@ class PortfolioService:
                 )
 
                 if nav_history and len(nav_history) > 0:
-                    print(f"[NAV Fallback] {fund_code} on {date}: using NAV from {prev_date} (actual date)")
+                    nav = nav_history[0].nav
+                    print(f"[NAV Fallback] {fund_code} on {date}: using NAV from {prev_date}")
+                    # Save to cache for both the actual date and current date (as estimated)
+                    await cls._save_nav_to_cache(db, fund_code, prev_date, nav, False, None)
+                    await cls._save_nav_to_cache(db, fund_code, date, nav, True, prev_date)
                     return {
-                        'nav': nav_history[0].nav,
+                        'nav': nav,
                         'is_estimated': True,
                         'actual_date': prev_date.strftime('%Y-%m-%d')
                     }

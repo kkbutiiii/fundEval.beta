@@ -289,6 +289,17 @@ class ApiService {
     );
     return response.data;
   }
+
+  /**
+   * Manually refresh portfolio cache.
+   * Clears all cached historical data and forces recalculation.
+   */
+  async refreshPortfolioCache(portfolioId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post<{ success: boolean; message: string }>(
+      `/portfolios/${portfolioId}/refresh-cache`
+    );
+    return response.data;
+  }
 }
 
 /**

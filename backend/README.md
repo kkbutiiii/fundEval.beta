@@ -10,7 +10,7 @@
 - **数据验证**: Pydantic 2.x
 - **数据源**: 天天基金 API (主要) / AKShare / Wind API / 东方财富 API
 - **定时任务**: APScheduler
-- **缓存**: 内存缓存 (cachetools)
+- **缓存**: 内存缓存 (cachetools) + 数据库缓存 (基金净值缓存、FOF收益曲线缓存)
 - **数据库**: SQLite (可扩展至 PostgreSQL/MySQL)
 
 ## 项目结构
@@ -25,7 +25,9 @@ backend/
 │   ├── db_models/              # SQLAlchemy 数据库模型 ⭐新增
 │   │   ├── __init__.py
 │   │   ├── portfolio.py        # 组合/持仓表模型
-│   │   └── transaction.py      # 交易记录表模型 ⭐新增
+│   │   ├── transaction.py      # 交易记录表模型 ⭐新增
+│   │   ├── fund_nav_cache.py   # 基金净值缓存表 ⭐新增
+│   │   └── portfolio_return_cache.py # FOF收益曲线缓存表 ⭐新增
 │   ├── models/                 # Pydantic 数据模型
 │   │   ├── fund.py             # 基金/持仓/资产配置模型
 │   │   ├── valuation.py        # 估值结果模型
@@ -146,7 +148,7 @@ docker-compose up -d backend
 | GET | `/api/v1/portfolios/{id}/funds/{code}/transactions` | 获取指定基金的交易记录 |
 | DELETE | `/api/v1/portfolios/{id}/transactions/{tx_id}` | 删除交易记录 |
 | GET | `/api/v1/portfolios/{id}/funds/{code}/transaction-summary` | 获取基金交易汇总 |
-| GET | `/api/v1/portfolios/{id}/history` | 获取组合历史市值和收益率 |
+| GET | `/api/v1/portfolios/{id}/history` | 获取组合历史市值和收益率（支持三种收益率计算）⭐ |
 
 #### 交易记录 API 示例
 
@@ -202,17 +204,41 @@ curl "http://localhost:50801/api/v1/portfolios/portfolio_xxx/history?period=30d"
       "date": "2026-02-10",
       "total_value": 15000.00,
       "total_cost": 14500.00,
-      "return_rate": 3.45
+      "total_profit": 500.00,
+      "daily_profit": 120.50,
+      "return_rate": 3.45,
+      "twr": 3.42,
+      "xirr": 45.6,
+      "is_estimated": false
     },
     {
       "date": "2026-02-11",
       "total_value": 15120.50,
       "total_cost": 14500.00,
-      "return_rate": 4.28
+      "total_profit": 620.50,
+      "daily_profit": 120.50,
+      "return_rate": 4.28,
+      "twr": 4.25,
+      "xirr": 52.3,
+      "is_estimated": false
     }
   ]
 }
 ```
+
+**字段说明:**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `date` | string | 日期 (YYYY-MM-DD) |
+| `total_value` | float | 总市值（各基金份额 × 当日净值之和） |
+| `total_cost` | float | 总成本（累计买入 - 累计卖出） |
+| `total_profit` | float | 总收益（总市值 - 总成本） |
+| `daily_profit` | float | 当日收益额（当日市值变化 - 当日新增投入） |
+| `return_rate` | float | 简单收益率（主指标）= (总市值 - 总成本) / 总成本 × 100% |
+| `twr` | float | 时间加权收益率(TWR)，剔除资金进出影响 |
+| `xirr` | float | 资金加权收益率(XIRR)，考虑时间价值的年化收益率 |
+| `is_estimated` | boolean | 是否使用了估算净值（周末/节假日） |
 
 ### FundInfo 模型字段说明
 
@@ -438,9 +464,9 @@ CREATE TABLE asset_allocations (
 | 后续访问 | **~0.2s** | SQLite 本地数据库 |
 | 缓存命中 | **~0.2s** | 内存缓存 |
 
-### 5. 组合管理与数据持久化
+### 5. 组合管理与FOF收益率计算 ⭐核心功能
 
-**数据库表结构:**
+#### 数据库表结构
 
 ```sql
 -- 组合表
@@ -477,7 +503,123 @@ CREATE TABLE fund_transactions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
 );
+
+-- 基金净值缓存表 ⭐新增
+CREATE TABLE fund_nav_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_code VARCHAR(20) NOT NULL,
+    date DATE NOT NULL,
+    nav DECIMAL(10, 4),
+    is_estimated BOOLEAN DEFAULT 0,          -- 是否使用往前查找的净值
+    actual_date DATE,                        -- 实际净值日期
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(fund_code, date)
+);
+
+-- FOF收益曲线缓存表 ⭐新增
+CREATE TABLE portfolio_return_cache (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    portfolio_id VARCHAR(100) NOT NULL,
+    date DATE NOT NULL,
+    total_value DECIMAL(15, 2),              -- 总市值
+    total_cost DECIMAL(15, 2),               -- 总成本
+    total_profit DECIMAL(15, 2),             -- 总收益
+    daily_profit DECIMAL(15, 2),             -- 当日收益额
+    return_rate DECIMAL(10, 4),              -- 简单收益率(%)
+    twr DECIMAL(10, 4),                      -- 时间加权收益率(%)
+    xirr DECIMAL(10, 4),                     -- 资金加权收益率(%)
+    is_estimated BOOLEAN DEFAULT 0,          -- 是否使用了估算净值
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(portfolio_id, date)
+);
 ```
+
+#### 三种收益率计算方法
+
+**1. 简单收益率 (Simple Return) - 主指标**
+```
+简单收益率 = (总市值 - 总成本) / 总成本 × 100%
+```
+- 最直观的盈亏比例
+- 受资金流入流出影响
+- FOF管理人主要关注的指标
+
+**2. 时间加权收益率 (TWR - Time-Weighted Return)**
+```
+TWR = ∏(1 + 区间收益率) - 1
+```
+- 剔除资金进出影响
+- 反映投资能力（选基能力）
+- 适合对比不同FOF产品
+
+**3. 资金加权收益率 (XIRR - Money-Weighted Return)**
+```
+XIRR = 考虑时间价值的年化收益率
+```
+- 内部收益率(IRR)的扩展
+- 考虑资金进出的时间点
+- 可与理财产品收益率横向对比
+
+#### 当日收益额计算
+
+```
+当日收益额 = 当日总市值 - 昨日总市值 - 当日新增投入 + 当日赎回
+```
+
+**特点：**
+- 不包含当日买入带来的市值增加
+- 不包含当日卖出导致的市值减少
+- 真实反映持仓资产的当日盈亏
+
+#### 缓存机制 ⭐性能优化
+
+**双层缓存策略：**
+
+```
+获取组合历史数据
+    │
+    ├─→ 1. 检查 portfolio_return_cache ──→ 直接返回缓存数据
+    │      未命中 ↓
+    ├─→ 2. 检查 fund_nav_cache ──────────→ 避免重复查询API
+    │      未命中 ↓
+    └─→ 3. 调用 Wind API 获取净值 ───────→ 计算后保存到缓存
+```
+
+**缓存特点：**
+
+| 缓存类型 | 表名 | 用途 | 共享范围 |
+|----------|------|------|----------|
+| 基金净值缓存 | fund_nav_cache | 缓存每只基金的历史净值 | 全系统共享 |
+| FOF收益缓存 | portfolio_return_cache | 缓存组合的每日收益数据 | 每个组合单独 |
+
+**增量更新机制：**
+- 只计算缺失日期的数据，不重新计算全部
+- 交易录入时自动失效相关日期的缓存
+- 支持 `use_cache` 参数控制是否使用缓存
+
+**性能提升：**
+
+| 场景 | 优化前 | 优化后 | 提升 |
+|------|--------|--------|------|
+| 30天 × 10只基金 | 300次API调用 | 0-10次API调用 | **30x+** |
+| 数据查询 | 实时计算 | 缓存读取 | **10x+** |
+
+#### 周末/节假日处理
+
+**净值缺失处理：**
+1. 尝试获取当日净值
+2. 如未找到，向前查找最近交易日（最多10天）
+3. 使用找到的净值作为估算值
+4. 标记 `is_estimated = true`
+
+**前端标注：**
+- 当日收益额柱状图：使用估算数据时颜色半透明
+- 收益率曲线：使用估算数据时线条变虚线
+- Tooltip：显示"(估)"标记
+
+### 6. 组合管理功能特性
 
 **功能特性:**
 
@@ -504,9 +646,12 @@ CREATE TABLE fund_transactions (
 | 基金列表内存缓存 | 搜索速度提升 600-800 倍 |
 | 基金数据本地存储 | 持仓查询从 10-15s 降至 ~0.2s (50-75倍提升) |
 | 三层数据读取 | 内存缓存 → SQLite → API 自动降级 |
+| FOF收益率缓存 | API调用从 300次/请求 降至 0-10次 (30x+提升) |
+| 基金净值缓存 | 全系统共享，避免重复查询 |
 | 禁用系统代理 | 解决东方财富 API 超时问题 |
-| 多级缓存 | 基金信息、持仓、行情数据缓存 |
+| 多级缓存 | 基金信息、持仓、行情、净值数据缓存 |
 | 批量 API 调用 | 减少外部请求次数 |
+| 增量更新 | 只计算缺失日期，不重新计算全部 |
 
 ## 性能基准
 
@@ -537,4 +682,5 @@ GET /api/v1/portfolios            ~0.5s   ✅
 ## 相关文档
 
 - [缓存优化方案](./CACHE_OPTIMIZATION.md) - 基金列表缓存优化详情
+- [FOF收益率计算说明](#三种收益率计算方法) - FOF基金管理人视角的收益率计算逻辑
 - [项目根目录 README](../README.md) - 项目整体说明

@@ -213,3 +213,25 @@ async def get_portfolio_history(
     if not history:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     return PortfolioHistoryResponse(**history)
+
+
+@router.post("/{portfolio_id}/refresh-cache", status_code=200)
+async def refresh_portfolio_cache(
+    portfolio_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually refresh portfolio cache.
+
+    Clears all cached historical data for this portfolio and forces recalculation.
+    Use this when you suspect cached data is stale or incorrect.
+    """
+    # First verify portfolio exists
+    portfolio = await portfolio_service.get_portfolio(db, portfolio_id)
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    # Invalidate all cache for this portfolio
+    await portfolio_service.invalidate_portfolio_cache(db, portfolio_id)
+    await db.commit()
+
+    return {"success": True, "message": "Cache refreshed successfully"}
