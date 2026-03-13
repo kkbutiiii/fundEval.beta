@@ -9,6 +9,8 @@ from sqlalchemy.orm import selectinload
 
 from app.db_models.portfolio import PortfolioDB, PortfolioHoldingDB
 from app.db_models.transaction import FundTransactionDB
+from app.db_models.fund_nav_cache import FundNavCacheDB
+from app.db_models.portfolio_return_cache import PortfolioReturnCacheDB
 from app.models.portfolio import (
     Portfolio, PortfolioCreate, PortfolioUpdate,
     PortfolioFund, PortfolioFundCreate, PortfolioFundUpdate,
@@ -588,6 +590,9 @@ class PortfolioService:
 
         await db.flush()
 
+        # Invalidate portfolio cache from transaction date
+        await cls.invalidate_portfolio_cache(db, portfolio_id, data.transaction_date)
+
         return FundTransaction.model_validate(transaction)
 
     @classmethod
@@ -670,6 +675,10 @@ class PortfolioService:
             portfolio.updated_at = datetime.utcnow()
 
         await db.flush()
+
+        # Invalidate portfolio cache from transaction date
+        await cls.invalidate_portfolio_cache(db, portfolio_id, transaction.transaction_date)
+
         return True
 
     @classmethod
@@ -781,15 +790,25 @@ class PortfolioService:
         from app.services.wind_client import wind_client
 
         # First pass: Collect NAV history and calculate daily data
-        # Structure: {fund_code: {date_str: nav_value}}
+        # Structure: {fund_code: {date_str: {'nav': float, 'is_estimated': bool, 'actual_date': str}}}
         fund_nav_history = {}
-        # Structure: {date_str: {'shares': {fund_code: shares}, 'values': {fund_code: market_value}}}
+        # Structure: {date_str: {'shares': {fund_code: shares}, 'values': {fund_code: market_value}, 'costs': {}, 'cash_flow': {}}}
         daily_data = {}
 
         current_date = start_date
         while current_date <= end_date:
             date_str = current_date.strftime('%Y-%m-%d')
-            daily_data[date_str] = {'shares': {}, 'values': {}, 'costs': {}}
+            daily_data[date_str] = {'shares': {}, 'values': {}, 'costs': {}, 'cash_flow': 0, 'is_estimated': False}
+
+            # Calculate cash flow for this date (buy = negative, sell = positive)
+            daily_cash_flow = sum(
+                -tx.amount for tx in transactions
+                if tx.transaction_type == 'buy' and tx.transaction_date == current_date
+            ) + sum(
+                tx.amount for tx in transactions
+                if tx.transaction_type == 'sell' and tx.transaction_date == current_date
+            )
+            daily_data[date_str]['cash_flow'] = daily_cash_flow
 
             for holding in holdings:
                 # Calculate shares held on this date
@@ -821,34 +840,57 @@ class PortfolioService:
                     )
                     daily_data[date_str]['costs'][holding.fund_code] = cost_basis
 
-                    # Get NAV for this date
+                    # Get NAV for this date (with fallback to previous trading day)
                     try:
-                        nav_data = await cls._get_nav_for_date(
+                        nav_result = await cls._get_nav_for_date_safe(
                             db, holding.fund_code, current_date
                         )
 
-                        if nav_data and nav_data > 0:
+                        if nav_result['nav'] and nav_result['nav'] > 0:
                             if holding.fund_code not in fund_nav_history:
                                 fund_nav_history[holding.fund_code] = {}
-                            fund_nav_history[holding.fund_code][date_str] = nav_data
-                            daily_data[date_str]['values'][holding.fund_code] = shares * nav_data
+                            fund_nav_history[holding.fund_code][date_str] = nav_result
+
+                            daily_data[date_str]['values'][holding.fund_code] = shares * nav_result['nav']
+
+                            # Mark as estimated if any fund uses estimated NAV
+                            if nav_result['is_estimated']:
+                                daily_data[date_str]['is_estimated'] = True
                     except Exception as e:
                         print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
 
             current_date += timedelta(days=1)
 
-        # Second pass: Calculate returns based on NAV changes (time-weighted)
+        # Second pass: Calculate returns and profits
         history_data = []
         sorted_dates = sorted(daily_data.keys())
+
+        # For TWR calculation: track sub-period returns between cash flows
+        sub_period_start_value = None
+        sub_period_start_index = 0
 
         for i, date_str in enumerate(sorted_dates):
             data = daily_data[date_str]
             total_value = sum(data['values'].values())
             total_cost = sum(data['costs'].values())
+            total_profit = total_value - total_cost
 
-            # Calculate return rate based on NAV changes (not cash flows)
-            # This is the daily portfolio return weighted by holdings
-            daily_return_rate = 0.0
+            # Calculate daily profit: today's value - yesterday's value - cash_flow
+            daily_profit = 0.0
+            if i > 0:
+                prev_date = sorted_dates[i - 1]
+                prev_value = sum(daily_data[prev_date]['values'].values())
+                daily_profit = total_value - prev_value - data['cash_flow']
+
+            # Simple Return Rate: (Total Value - Total Cost) / Total Cost
+            simple_return = ((total_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
+
+            # TWR (Time-Weighted Return) calculation
+            # TWR = product of (1 + sub_period_return) - 1
+            twr = simple_return  # Default to simple return if no cash flows
+
+            # Calculate daily TWR component based on NAV changes (not cash flows)
+            daily_nav_return = 0.0
             total_weight = 0.0
 
             for fund_code, market_value in data['values'].items():
@@ -859,31 +901,45 @@ class PortfolioService:
                     # Get previous day's NAV for this fund
                     if i > 0:
                         prev_date = sorted_dates[i - 1]
-                        prev_nav = fund_nav_history.get(fund_code, {}).get(prev_date)
-                        curr_nav = fund_nav_history.get(fund_code, {}).get(date_str)
+                        prev_nav_data = fund_nav_history.get(fund_code, {}).get(prev_date)
+                        curr_nav_data = fund_nav_history.get(fund_code, {}).get(date_str)
 
-                        if prev_nav and curr_nav and prev_nav > 0:
-                            fund_return = (curr_nav - prev_nav) / prev_nav * 100
-                            daily_return_rate += weight * fund_return
+                        if prev_nav_data and curr_nav_data and prev_nav_data['nav'] > 0:
+                            fund_return = (curr_nav_data['nav'] - prev_nav_data['nav']) / prev_nav_data['nav'] * 100
+                            daily_nav_return += weight * fund_return
 
-            # Calculate cumulative return from start
+            # Calculate cumulative TWR from daily NAV returns
             if i == 0:
-                cumulative_return = 0.0
+                twr = 0.0
             else:
-                # Alternative: calculate as (current_value / initial_cost - 1) * 100
-                # But this includes cash flow effects
-                # Use time-weighted approach: compound the daily returns
                 prev_data = history_data[i - 1]
-                prev_cumulative = prev_data['return_rate']
-                # Simple compounding: (1 + r1/100) * (1 + r2/100) - 1
-                cumulative_return = ((1 + prev_cumulative / 100) * (1 + daily_return_rate / 100) - 1) * 100
+                prev_twr = prev_data.get('twr', 0.0)
+                # TWR compounds: (1 + r1) * (1 + r2) - 1
+                twr = ((1 + prev_twr / 100) * (1 + daily_nav_return / 100) - 1) * 100
 
-            history_data.append({
+            # XIRR calculation (simplified - using simple return as approximation)
+            # Full XIRR requires solving for rate where NPV = 0
+            # For now, we approximate with annualized simple return
+            days_since_start = i
+            if days_since_start > 0 and simple_return != 0:
+                # Annualized return: (1 + r)^(365/days) - 1
+                xirr = ((1 + simple_return / 100) ** (365 / days_since_start) - 1) * 100
+            else:
+                xirr = None
+
+            history_item = {
                 'date': date_str,
                 'total_value': round(total_value, 2),
                 'total_cost': round(total_cost, 2),
-                'return_rate': round(cumulative_return, 4)
-            })
+                'total_profit': round(total_profit, 2),
+                'daily_profit': round(daily_profit, 2),
+                'return_rate': round(simple_return, 4),  # Simple return (main metric)
+                'twr': round(twr, 4),  # Time-Weighted Return
+                'xirr': round(xirr, 4) if xirr is not None else None,  # Money-Weighted Return
+                'is_estimated': data['is_estimated'],
+            }
+
+            history_data.append(history_item)
 
         return {
             'portfolio_id': portfolio_id,
@@ -892,32 +948,26 @@ class PortfolioService:
         }
 
     @classmethod
-    async def _get_nav_for_date(
+    async def _get_nav_for_date_safe(
         cls,
         db: AsyncSession,
         fund_code: str,
         date: datetime.date
-    ) -> Optional[float]:
-        """Get NAV for a fund on a specific date."""
+    ) -> dict:
+        """Get NAV for a fund on a specific date with fallback to previous trading day.
+
+        Returns:
+            dict: {
+                'nav': float or None,
+                'is_estimated': bool,
+                'actual_date': str or None  # YYYY-MM-DD format
+            }
+        """
         try:
-            # Try to get from FundInfoDB (cached data)
-            result = await db.execute(
-                select(FundInfoDB).where(FundInfoDB.fund_code == fund_code)
-            )
-            fund_info = result.scalar_one_or_none()
-
-            # If we have cached NAV data and it's recent enough, use it
-            if fund_info and fund_info.nav and fund_info.nav_date:
-                nav_date = datetime.strptime(fund_info.nav_date, '%Y-%m-%d').date()
-                # Use if within 5 days (approximation for non-trading days)
-                if abs((date - nav_date).days) <= 5:
-                    return fund_info.nav
-
-            # Fallback: try Wind API for historical data
+            # Try to get NAV for the exact date first (from Wind API or cache)
             from app.services.wind_client import wind_client
             date_str = date.strftime('%Y%m%d')
 
-            # Use synchronous call in async context
             nav_history = await asyncio.to_thread(
                 wind_client.get_nav_history,
                 fund_code,
@@ -926,12 +976,186 @@ class PortfolioService:
             )
 
             if nav_history and len(nav_history) > 0:
-                return nav_history[0].nav
+                return {
+                    'nav': nav_history[0].nav,
+                    'is_estimated': False,
+                    'actual_date': date.strftime('%Y-%m-%d')
+                }
+
+            # If not found, look back up to 10 days for the nearest trading day
+            for i in range(1, 10):
+                prev_date = date - timedelta(days=i)
+                prev_date_str = prev_date.strftime('%Y%m%d')
+
+                nav_history = await asyncio.to_thread(
+                    wind_client.get_nav_history,
+                    fund_code,
+                    prev_date_str,
+                    prev_date_str
+                )
+
+                if nav_history and len(nav_history) > 0:
+                    print(f"[NAV Fallback] {fund_code} on {date}: using NAV from {prev_date} (actual date)")
+                    return {
+                        'nav': nav_history[0].nav,
+                        'is_estimated': True,
+                        'actual_date': prev_date.strftime('%Y-%m-%d')
+                    }
 
         except Exception as e:
             print(f"Error fetching NAV for {fund_code} on {date}: {e}")
 
+        return {'nav': None, 'is_estimated': False, 'actual_date': None}
+
+    # ==========================================================================
+    # Cache Methods
+    # ==========================================================================
+
+    @classmethod
+    async def _get_cached_nav(cls, db: AsyncSession, fund_code: str, date: datetime.date) -> Optional[dict]:
+        """Get NAV from cache."""
+        try:
+            result = await db.execute(
+                select(FundNavCacheDB).where(
+                    FundNavCacheDB.fund_code == fund_code,
+                    FundNavCacheDB.date == date
+                )
+            )
+            cached = result.scalar_one_or_none()
+            if cached and cached.nav:
+                return {
+                    'nav': float(cached.nav),
+                    'is_estimated': cached.is_estimated,
+                    'actual_date': cached.actual_date.strftime('%Y-%m-%d') if cached.actual_date else None
+                }
+        except Exception as e:
+            print(f"Error reading NAV cache: {e}")
         return None
+
+    @classmethod
+    async def _save_nav_to_cache(cls, db: AsyncSession, fund_code: str, date: datetime.date,
+                                  nav: float, is_estimated: bool, actual_date: Optional[datetime.date]):
+        """Save NAV to cache."""
+        try:
+            # Check if exists
+            result = await db.execute(
+                select(FundNavCacheDB).where(
+                    FundNavCacheDB.fund_code == fund_code,
+                    FundNavCacheDB.date == date
+                )
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                existing.nav = nav
+                existing.is_estimated = is_estimated
+                existing.actual_date = actual_date
+                existing.updated_at = datetime.utcnow()
+            else:
+                cached = FundNavCacheDB(
+                    fund_code=fund_code,
+                    date=date,
+                    nav=nav,
+                    is_estimated=is_estimated,
+                    actual_date=actual_date
+                )
+                db.add(cached)
+            await db.flush()
+        except Exception as e:
+            print(f"Error saving NAV cache: {e}")
+
+    @classmethod
+    async def _get_cached_portfolio_returns(cls, db: AsyncSession, portfolio_id: str,
+                                            start_date: datetime.date, end_date: datetime.date) -> List[dict]:
+        """Get portfolio return data from cache."""
+        try:
+            result = await db.execute(
+                select(PortfolioReturnCacheDB).where(
+                    PortfolioReturnCacheDB.portfolio_id == portfolio_id,
+                    PortfolioReturnCacheDB.date >= start_date,
+                    PortfolioReturnCacheDB.date <= end_date
+                ).order_by(PortfolioReturnCacheDB.date)
+            )
+            cached = result.scalars().all()
+            return [
+                {
+                    'date': c.date.strftime('%Y-%m-%d'),
+                    'total_value': float(c.total_value) if c.total_value else 0,
+                    'total_cost': float(c.total_cost) if c.total_cost else 0,
+                    'total_profit': float(c.total_profit) if c.total_profit else 0,
+                    'daily_profit': float(c.daily_profit) if c.daily_profit else 0,
+                    'return_rate': float(c.return_rate) if c.return_rate else 0,
+                    'twr': float(c.twr) if c.twr else 0,
+                    'xirr': float(c.xirr) if c.xirr else None,
+                    'is_estimated': c.is_estimated,
+                }
+                for c in cached
+            ]
+        except Exception as e:
+            print(f"Error reading portfolio cache: {e}")
+        return []
+
+    @classmethod
+    async def _save_portfolio_returns_to_cache(cls, db: AsyncSession, portfolio_id: str, data: List[dict]):
+        """Save portfolio return data to cache."""
+        try:
+            for item in data:
+                date = datetime.strptime(item['date'], '%Y-%m-%d').date()
+
+                result = await db.execute(
+                    select(PortfolioReturnCacheDB).where(
+                        PortfolioReturnCacheDB.portfolio_id == portfolio_id,
+                        PortfolioReturnCacheDB.date == date
+                    )
+                )
+                existing = result.scalar_one_or_none()
+
+                if existing:
+                    existing.total_value = item['total_value']
+                    existing.total_cost = item['total_cost']
+                    existing.total_profit = item['total_profit']
+                    existing.daily_profit = item['daily_profit']
+                    existing.return_rate = item['return_rate']
+                    existing.twr = item.get('twr', 0)
+                    existing.xirr = item.get('xirr')
+                    existing.is_estimated = item.get('is_estimated', False)
+                    existing.updated_at = datetime.utcnow()
+                else:
+                    cached = PortfolioReturnCacheDB(
+                        portfolio_id=portfolio_id,
+                        date=date,
+                        total_value=item['total_value'],
+                        total_cost=item['total_cost'],
+                        total_profit=item['total_profit'],
+                        daily_profit=item['daily_profit'],
+                        return_rate=item['return_rate'],
+                        twr=item.get('twr', 0),
+                        xirr=item.get('xirr'),
+                        is_estimated=item.get('is_estimated', False)
+                    )
+                    db.add(cached)
+            await db.flush()
+        except Exception as e:
+            print(f"Error saving portfolio cache: {e}")
+
+    @classmethod
+    async def invalidate_portfolio_cache(cls, db: AsyncSession, portfolio_id: str, from_date: Optional[datetime.date] = None):
+        """Invalidate portfolio return cache from a specific date.
+
+        Call this when new transactions are added to ensure cache is recalculated.
+        """
+        try:
+            query = delete(PortfolioReturnCacheDB).where(
+                PortfolioReturnCacheDB.portfolio_id == portfolio_id
+            )
+            if from_date:
+                query = query.where(PortfolioReturnCacheDB.date >= from_date)
+
+            result = await db.execute(query)
+            await db.flush()
+            print(f"[Cache] Invalidated {result.rowcount} cached entries for portfolio {portfolio_id}")
+        except Exception as e:
+            print(f"Error invalidating portfolio cache: {e}")
 
 
 portfolio_service = PortfolioService()

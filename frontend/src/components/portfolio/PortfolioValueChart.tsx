@@ -1,10 +1,10 @@
 /**
  * Portfolio Value Chart Component
- * Displays historical total value trends
+ * Displays historical total value trends with total profit line
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Empty, Typography, Radio, Space, Statistic } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { PortfolioHistory } from '../../types';
 import { api } from '../../services/api';
 
@@ -74,33 +74,42 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
     const dates = data.data.map((d) => d.date);
     const values = data.data.map((d) => d.total_value);
     const costs = data.data.map((d) => d.total_cost);
+    const profits = data.data.map((d) => d.total_profit);
+    const isEstimated = data.data.map((d) => d.is_estimated);
 
     const option = {
       tooltip: {
         trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+        },
         formatter: (params: any[]) => {
           const date = params[0].axisValue;
           const value = params.find((p) => p.seriesName === '总市值')?.value || 0;
           const cost = params.find((p) => p.seriesName === '总成本')?.value || 0;
-          const profit = value - cost;
+          const profit = params.find((p) => p.seriesName === '总收益')?.value || 0;
+          const dataIndex = params[0].dataIndex;
+          const estimated = isEstimated[dataIndex];
+
           const profitRate = cost > 0 ? ((profit / cost) * 100).toFixed(2) : '0.00';
           const color = profit >= 0 ? '#cf1322' : '#3f8600';
+          const estimatedMark = estimated ? ' <span style="color:#999">(估)</span>' : '';
 
           return `
-            <div style="font-weight: bold; margin-bottom: 4px;">${date}</div>
+            <div style="font-weight: bold; margin-bottom: 4px;">${date}${estimatedMark}</div>
             <div>总市值: ¥${Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
             <div>总成本: ¥${Number(cost).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
-            <div style="color: ${color}">收益: ${profit >= 0 ? '+' : ''}¥${Number(profit).toLocaleString('zh-CN', { minimumFractionDigits: 2 })} (${profitRate}%)</div>
+            <div style="color: ${color}">总收益: ${profit >= 0 ? '+' : ''}¥${Number(profit).toLocaleString('zh-CN', { minimumFractionDigits: 2 })} (${profitRate}%)</div>
           `;
         },
       },
       legend: {
-        data: ['总市值', '总成本'],
+        data: ['总市值', '总成本', '总收益'],
         bottom: 0,
       },
       grid: {
         left: '3%',
-        right: '4%',
+        right: '12%',  // Make room for right y-axis
         bottom: '15%',
         top: '10%',
         containLabel: true,
@@ -116,23 +125,42 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
           },
         },
       },
-      yAxis: {
-        type: 'value',
-        name: '金额(元)',
-        axisLabel: {
-          formatter: (value: number) => {
-            if (value >= 10000) {
-              return (value / 10000).toFixed(0) + '万';
-            }
-            return value.toFixed(0);
+      yAxis: [
+        {
+          type: 'value',
+          name: '金额(元)',
+          position: 'left',
+          axisLabel: {
+            formatter: (value: number) => {
+              if (Math.abs(value) >= 10000) {
+                return (value / 10000).toFixed(0) + '万';
+              }
+              return value.toFixed(0);
+            },
+          },
+          splitLine: {
+            lineStyle: {
+              color: '#f0f0f0',
+            },
           },
         },
-        splitLine: {
-          lineStyle: {
-            color: '#f0f0f0',
+        {
+          type: 'value',
+          name: '总收益(元)',
+          position: 'right',
+          axisLabel: {
+            formatter: (value: number) => {
+              if (Math.abs(value) >= 10000) {
+                return (value / 10000).toFixed(1) + '万';
+              }
+              return value.toFixed(0);
+            },
+          },
+          splitLine: {
+            show: false,
           },
         },
-      },
+      ],
       series: [
         {
           name: '总市值',
@@ -157,6 +185,28 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
           symbol: 'none',
           lineStyle: { width: 2, color: '#91cc75', type: 'dashed' },
           itemStyle: { color: '#91cc75' },
+        },
+        {
+          name: '总收益',
+          type: 'line',
+          yAxisIndex: 1,  // Use right y-axis
+          data: profits.map((value: number, index: number) => {
+            const estimated = isEstimated[index];
+            return {
+              value: value,
+              lineStyle: estimated
+                ? { type: 'dashed', color: value >= 0 ? '#ff4d4f' : '#52c41a' }
+                : { color: value >= 0 ? '#ff4d4f' : '#52c41a' },
+              itemStyle: {
+                color: estimated
+                  ? (value >= 0 ? 'rgba(255, 77, 79, 0.6)' : 'rgba(82, 196, 26, 0.6)')
+                  : (value >= 0 ? '#ff4d4f' : '#52c41a'),
+              },
+            };
+          }),
+          smooth: true,
+          symbol: 'circle',
+          symbolSize: 4,
         },
       ],
     };
@@ -188,6 +238,8 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
     const last = data.data[data.data.length - 1];
     const max = Math.max(...data.data.map((d) => d.total_value));
     const min = Math.min(...data.data.map((d) => d.total_value));
+    const maxProfit = Math.max(...data.data.map((d) => d.total_profit));
+    const minProfit = Math.min(...data.data.map((d) => d.total_profit));
 
     return {
       current: last.total_value,
@@ -196,6 +248,9 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
       min,
       change: last.total_value - first.total_value,
       changeRate: first.total_value > 0 ? ((last.total_value - first.total_value) / first.total_value) * 100 : 0,
+      currentProfit: last.total_profit,
+      maxProfit,
+      minProfit,
     };
   }, [data]);
 
@@ -221,7 +276,9 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
   }
 
   const isPositive = (stats?.change || 0) >= 0;
+  const isProfitPositive = (stats?.currentProfit || 0) >= 0;
   const color = isPositive ? '#cf1322' : '#3f8600';
+  const profitColor = isProfitPositive ? '#cf1322' : '#3f8600';
 
   return (
     <Card
@@ -247,6 +304,13 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
             valueStyle={{ color }}
           />
           <Statistic
+            title="当前收益"
+            value={stats.currentProfit}
+            precision={2}
+            prefix={stats.currentProfit >= 0 ? '+' : ''}
+            valueStyle={{ color: profitColor }}
+          />
+          <Statistic
             title="区间涨跌"
             value={stats.changeRate}
             precision={2}
@@ -254,12 +318,26 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
             valueStyle={{ color }}
             prefix={isPositive ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
           />
-          <Statistic title="区间最高" value={stats.max} precision={2} prefix="¥" />
-          <Statistic title="区间最低" value={stats.min} precision={2} prefix="¥" />
         </Space>
       )}
 
       <div ref={chartRef} style={{ width: '100%', height: 300 }} />
+
+      <Divider style={{ margin: '16px 0 8px 0' }} />
+
+      {/* Asset Value Calculation Explanation */}
+      <div style={{ fontSize: 12, color: '#999', lineHeight: 1.6 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          <InfoCircleOutlined style={{ marginRight: 4 }} />
+          总资产走势说明：
+        </Text>
+        <div style={{ marginLeft: 16, marginTop: 4 }}>
+          <div>• <strong>总市值</strong> = 各基金份额 × 当日净值之和</div>
+          <div>• <strong>总成本</strong> = 累计买入金额 - 累计卖出金额</div>
+          <div>• <strong>总收益线</strong>（右轴）：总市值 - 总成本，红色=盈利，绿色=亏损，虚线=使用估算净值</div>
+          <div>• 周末/节假日使用最近交易日净值，标记为估算</div>
+        </div>
+      </div>
     </Card>
   );
 };

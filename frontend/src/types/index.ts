@@ -299,7 +299,12 @@ export interface PortfolioHistoryPoint {
   date: string;           // YYYY-MM-DD
   total_value: number;    // Total market value
   total_cost: number;     // Total cost basis
-  return_rate: number;    // Return rate in percentage
+  total_profit: number;   // Total profit/loss (total_value - total_cost)
+  daily_profit: number;   // Daily profit/loss
+  return_rate: number;    // Simple return rate (%)
+  twr?: number;          // Time-Weighted Return (%)
+  xirr?: number;         // Money-Weighted Return/XIRR (% annualized)
+  is_estimated?: boolean; // Whether data is based on estimated NAV
 }
 
 /** Portfolio history response */

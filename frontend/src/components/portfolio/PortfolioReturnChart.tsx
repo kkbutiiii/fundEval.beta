@@ -1,10 +1,10 @@
 /**
  * Portfolio Return Chart Component
- * Displays historical return rate trends
+ * Displays historical return rate trends with daily profit bars
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Empty, Typography, Radio, Space, Statistic } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider, Tooltip } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { PortfolioHistory } from '../../types';
 import { api } from '../../services/api';
 
@@ -73,6 +73,8 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
 
     const dates = data.data.map((d) => d.date);
     const returns = data.data.map((d) => d.return_rate);
+    const dailyProfits = data.data.map((d) => d.daily_profit);
+    const isEstimated = data.data.map((d) => d.is_estimated);
 
     // Calculate zero line
     const zeroLine = new Array(dates.length).fill(0);
@@ -80,30 +82,43 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
     const option = {
       tooltip: {
         trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+        },
         formatter: (params: any[]) => {
           const date = params[0].axisValue;
-          const value = params.find((p) => p.seriesName === '收益率')?.value || 0;
-          const color = value >= 0 ? '#cf1322' : '#3f8600';
+          const returnData = params.find((p) => p.seriesName === '收益率');
+          const profitData = params.find((p) => p.seriesName === '当日收益额');
+          const dataIndex = params[0].dataIndex;
+          const estimated = isEstimated[dataIndex];
+
+          const returnValue = returnData?.value || 0;
+          const profitValue = profitData?.value || 0;
+          const returnColor = returnValue >= 0 ? '#cf1322' : '#3f8600';
+          const profitColor = profitValue >= 0 ? '#ff4d4f' : '#52c41a';
+          const estimatedMark = estimated ? ' <span style="color:#999">(估)</span>' : '';
+
           return `
-            <div style="font-weight: bold; margin-bottom: 4px;">${date}</div>
-            <div style="color: ${color}">收益率: ${value >= 0 ? '+' : ''}${Number(value).toFixed(2)}%</div>
+            <div style="font-weight: bold; margin-bottom: 4px;">${date}${estimatedMark}</div>
+            <div style="color: ${returnColor}">收益率: ${returnValue >= 0 ? '+' : ''}${Number(returnValue).toFixed(2)}%</div>
+            <div style="color: ${profitColor}">当日收益: ${profitValue >= 0 ? '+' : ''}¥${Number(profitValue).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           `;
         },
       },
       legend: {
-        data: ['收益率'],
+        data: ['收益率', '当日收益额', '零线'],
         bottom: 0,
       },
       grid: {
         left: '3%',
-        right: '4%',
+        right: '12%',  // Make room for right y-axis
         bottom: '15%',
         top: '10%',
         containLabel: true,
       },
       xAxis: {
         type: 'category',
-        boundaryGap: false,
+        boundaryGap: true,  // Changed to true for bar chart
         data: dates,
         axisLabel: {
           formatter: (value: string) => {
@@ -112,18 +127,37 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
           },
         },
       },
-      yAxis: {
-        type: 'value',
-        name: '收益率(%)',
-        axisLabel: {
-          formatter: '{value}%',
-        },
-        splitLine: {
-          lineStyle: {
-            color: '#f0f0f0',
+      yAxis: [
+        {
+          type: 'value',
+          name: '收益率(%)',
+          position: 'left',
+          axisLabel: {
+            formatter: '{value}%',
+          },
+          splitLine: {
+            lineStyle: {
+              color: '#f0f0f0',
+            },
           },
         },
-      },
+        {
+          type: 'value',
+          name: '当日收益(元)',
+          position: 'right',
+          axisLabel: {
+            formatter: (value: number) => {
+              if (Math.abs(value) >= 10000) {
+                return (value / 10000).toFixed(1) + '万';
+              }
+              return value.toFixed(0);
+            },
+          },
+          splitLine: {
+            show: false,
+          },
+        },
+      ],
       series: [
         {
           name: '收益率',
@@ -149,6 +183,23 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
               { offset: 1, color: 'rgba(63, 134, 0, 0.2)' },
             ]),
           },
+        },
+        {
+          name: '当日收益额',
+          type: 'bar',
+          yAxisIndex: 1,  // Use right y-axis
+          data: dailyProfits.map((value: number, index: number) => {
+            const estimated = isEstimated[index];
+            return {
+              value: value,
+              itemStyle: {
+                color: estimated
+                  ? (value >= 0 ? 'rgba(255, 77, 79, 0.5)' : 'rgba(82, 196, 26, 0.5)')  // Semi-transparent for estimated
+                  : (value >= 0 ? '#ff4d4f' : '#52c41a'),  // Solid color for actual
+              },
+            };
+          }),
+          barMaxWidth: 20,
         },
         {
           name: '零线',
@@ -201,6 +252,8 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       max,
       min,
       change: last.return_rate - first.return_rate,
+      twr: last.twr,
+      xirr: last.xirr,
     };
   }, [data]);
 
@@ -266,6 +319,22 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       )}
 
       <div ref={chartRef} style={{ width: '100%', height: 300 }} />
+
+      <Divider style={{ margin: '16px 0 8px 0' }} />
+
+      {/* Return Rate Calculation Explanation */}
+      <div style={{ fontSize: 12, color: '#999', lineHeight: 1.6 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          <InfoCircleOutlined style={{ marginRight: 4 }} />
+          收益率计算说明：
+        </Text>
+        <div style={{ marginLeft: 16, marginTop: 4 }}>
+          <div>• <strong>简单收益率</strong> = (总市值 - 总成本) / 总成本 × 100%</div>
+          <div>• <strong>时间加权(TWR)</strong> = ∏(1 + 区间收益率) - 1，剔除资金进出影响</div>
+          <div>• <strong>资金加权(XIRR)</strong> = 考虑时间价值的年化收益率</div>
+          <div>• <strong>当日收益额柱状图</strong>：红色=盈利，绿色=亏损，半透明=使用估算净值</div>
+        </div>
+      </div>
     </Card>
   );
 };
