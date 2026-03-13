@@ -1,7 +1,7 @@
 /**
  * Drawer component for showing fund details and transaction history.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Drawer,
   Space,
@@ -13,6 +13,7 @@ import {
 import {
   ShoppingCartOutlined,
   MoneyCollectOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { TransactionHistory } from './TransactionHistory';
 import type { PortfolioFund } from '../../types';
@@ -36,6 +37,13 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
   onBuy,
   onSell,
 }) => {
+  // State to trigger refresh of transaction history
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   const formatCurrency = (value: number | undefined) => {
     if (value === undefined || isNaN(value)) return '-';
     return new Intl.NumberFormat('zh-CN', {
@@ -66,11 +74,19 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
   return (
     <Drawer
       title={
-        <div>
-          <Title level={5} style={{ margin: 0 }}>
-            {fund.fund_name}
-          </Title>
-          <Text type="secondary">{fund.fund_code}</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <Title level={5} style={{ margin: 0 }}>
+              {fund.fund_name}
+            </Title>
+            <Text type="secondary">{fund.fund_code}</Text>
+          </div>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            size="small"
+            title="刷新交易记录"
+          />
         </div>
       }
       placement="right"
@@ -128,6 +144,7 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
       <div>
         <Title level={5}>交易记录</Title>
         <TransactionHistory
+          key={refreshKey}
           portfolioId={portfolioId}
           fundCode={fund.fund_code}
           fundName={fund.fund_name}

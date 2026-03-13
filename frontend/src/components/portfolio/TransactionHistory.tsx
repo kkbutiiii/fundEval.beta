@@ -10,6 +10,7 @@ import {
   Typography,
   Empty,
   Spin,
+  message,
 } from 'antd';
 import {
   ArrowUpOutlined,
@@ -65,8 +66,11 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
       await api.deleteTransaction(portfolioId, transactionId);
       await fetchData();
       onRefresh?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete transaction:', error);
+      // Show error message from backend
+      const errorMsg = error?.response?.data?.detail || '删除交易失败';
+      message.error(errorMsg);
     }
   };
 

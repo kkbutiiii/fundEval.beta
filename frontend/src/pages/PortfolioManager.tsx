@@ -98,15 +98,17 @@ const PortfolioManager: React.FC = () => {
         return;
       }
 
-      // Step 1: Add fund to portfolio with initial shares
+      // Step 1: Add fund to portfolio with 0 shares (shares will be added via transaction)
+      // Note: We set shares to 0 here because createTransaction will update the holding shares
+      // This prevents double counting of shares
       const portfolioFund: PortfolioFund = {
         fund_code: fundCode,
         fund_name: fundName,
-        shares: transaction.shares,
+        shares: 0,
       };
       await addFundToPortfolio(currentPortfolio.id, portfolioFund);
 
-      // Step 2: Create the first buy transaction
+      // Step 2: Create the first buy transaction (this will update holding shares)
       await api.createTransaction(currentPortfolio.id, fundCode, transaction);
 
       setAddFundVisible(false);

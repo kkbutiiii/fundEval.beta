@@ -13,6 +13,7 @@ import {
   InputNumber,
   Space,
   Divider,
+  Alert,
 } from 'antd';
 import dayjs from 'dayjs';
 import { api } from '../../services/api';
@@ -38,6 +39,8 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
   const [searchResults, setSearchResults] = useState<FundInfo[]>([]);
   const [selectedFund, setSelectedFund] = useState<FundInfo | null>(null);
   const [calculating, setCalculating] = useState<'shares' | 'amount' | null>(null);
+  const [navLoading, setNavLoading] = useState(false);
+  const [dateWarning, setDateWarning] = useState<string | null>(null);
 
   const handleSearch = async (keyword: string) => {
     if (!keyword || keyword.length < 2) {
@@ -62,6 +65,43 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
     setSelectedFund(fund || null);
     if (fund?.nav) {
       form.setFieldsValue({ nav: fund.nav });
+    }
+  };
+
+  const handleDateChange = async (date: dayjs.Dayjs | null) => {
+    if (!date || !selectedFund) return;
+
+    // Clear previous warning
+    setDateWarning(null);
+
+    // Only fetch historical NAV if we have a fund selected
+    setNavLoading(true);
+    try {
+      // Get NAV history for the last 3 months to cover the selected date
+      const navHistory = await api.getNavHistory(selectedFund.fund_code, '3m');
+
+      if (navHistory?.history?.length > 0) {
+        // Format the selected date to match NAV history format (YYYY-MM-DD)
+        const selectedDateStr = date.format('YYYY-MM-DD');
+
+        // Find the NAV for the selected date
+        const navForDate = navHistory.history.find(
+          item => item.date === selectedDateStr
+        );
+
+        if (navForDate?.nav) {
+          form.setFieldsValue({ nav: navForDate.nav });
+        } else {
+          // If no NAV found for exact date, show a warning message
+          const warningMsg = `${selectedDateStr} 可能不是交易日，未找到净值数据。请手动输入净值或选择其他日期。`;
+          setDateWarning(warningMsg);
+          console.log(`No NAV data found for ${selectedDateStr}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch NAV history:', error);
+    } finally {
+      setNavLoading(false);
     }
   };
 
@@ -116,6 +156,7 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
     form.resetFields();
     setSelectedFund(null);
     setSearchResults([]);
+    setDateWarning(null);
     onCancel();
   };
 
@@ -181,8 +222,20 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
             style={{ width: '100%' }}
             format="YYYY-MM-DD"
             allowClear={false}
+            onChange={handleDateChange}
           />
         </Form.Item>
+
+        {dateWarning && (
+          <Alert
+            message={dateWarning}
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setDateWarning(null)}
+          />
+        )}
 
         <Form.Item
           name="nav"

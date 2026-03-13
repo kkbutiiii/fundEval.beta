@@ -166,10 +166,13 @@ async def delete_transaction(
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a transaction."""
-    success = await portfolio_service.delete_transaction(db, portfolio_id, transaction_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    return None
+    try:
+        success = await portfolio_service.delete_transaction(db, portfolio_id, transaction_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        return None
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{portfolio_id}/funds/{fund_code}/transaction-summary", response_model=TransactionSummary)

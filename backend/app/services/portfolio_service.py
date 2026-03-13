@@ -535,7 +535,9 @@ class PortfolioService:
 
         # For sell transactions, check if enough shares
         if data.transaction_type == 'sell':
-            # Get current total shares
+            # Get current total shares from transaction records only
+            # Note: We calculate from transactions rather than holding.shares
+            # to maintain consistency and avoid double counting
             result = await db.execute(
                 select(FundTransactionDB).where(
                     FundTransactionDB.portfolio_id == portfolio_id,
@@ -547,8 +549,10 @@ class PortfolioService:
                 t.shares if t.transaction_type == 'buy' else -t.shares
                 for t in transactions
             )
-            # Add the initial holding shares as first buy
-            total_shares += holding.shares
+            # Note: We don't add holding.shares here because:
+            # 1. When fund is first added, holding.shares is 0
+            # 2. All share changes come from transactions which update holding.shares
+            # 3. Adding holding.shares would cause double counting
 
             if shares > total_shares:
                 raise ValueError(f"Insufficient shares for sale. Available: {total_shares}, Requested: {shares}")
@@ -639,8 +643,17 @@ class PortfolioService:
         holding = result.scalar_one_or_none()
 
         if holding:
+            # Calculate what the shares would be after deletion
             if transaction.transaction_type == 'buy':
-                holding.shares -= transaction.shares
+                new_shares = holding.shares - transaction.shares
+                # Check if deletion would result in negative shares
+                if new_shares < 0:
+                    raise ValueError(
+                        f"Cannot delete this buy transaction: it would result in negative shares ({new_shares}). "
+                        f"You may have already sold some of these shares. "
+                        f"Current shares: {holding.shares}, Transaction shares: {transaction.shares}"
+                    )
+                holding.shares = new_shares
             else:  # sell
                 holding.shares += transaction.shares
             holding.updated_at = datetime.utcnow()
