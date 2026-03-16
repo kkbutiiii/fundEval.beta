@@ -47,7 +47,7 @@ timeout /t 1 /nobreak >nul
 
 :: Start Frontend tab - use cmd /k to ensure npm is available
 echo [3/3] Starting Frontend Server...
-"%WT_PATH%" -w 0 nt --title "Frontend Server" -d "%~dp0frontend" cmd /k "npm run dev -- --port 50888"
+"%WT_PATH%" -w 0 nt --title "Frontend Server" -d "%~dp0frontend" cmd /k "set CONSOLE_NINJA_DISABLE=true && npx --yes vite@5.4.0"
 
 echo.
 echo Services started in Windows Terminal tabs.

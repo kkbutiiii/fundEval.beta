@@ -6,6 +6,9 @@ import react from '@vitejs/plugin-react'
 // - 后端: 50801 (FastAPI 主服务)
 // - 估值API: 50802 (独立估值计算服务)
 
+// 禁用 Console Ninja
+process.env.CONSOLE_NINJA_DISABLE = 'true'
+
 export default defineConfig({
   plugins: [react()],
   server: {

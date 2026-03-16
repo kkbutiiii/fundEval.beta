@@ -35,7 +35,7 @@ echo.
 :: Step 1: Start Estimation Service
 :: Step 2: Split horizontally, start Backend (left column: Estimation top, Backend bottom)
 :: Step 3: Move to Estimation, split vertically, start Frontend (top-right)
-"%WT_PATH%" -w 0 nt --title "Estimation Service" -d "%~dp0estimation_service" cmd /k "python run_all.py" ; sp -H --title "Backend Server" -d "%~dp0backend" cmd /k "uvicorn app.main:app --host 0.0.0.0 --port 50801 --reload" ; mf up ; sp -V --title "Frontend Server" -d "%~dp0frontend" cmd /k "npm run dev -- --port 50888"
+"%WT_PATH%" -w 0 nt --title "Estimation Service" -d "%~dp0estimation_service" cmd /k "python run_all.py" ; sp -H --title "Backend Server" -d "%~dp0backend" cmd /k "uvicorn app.main:app --host 0.0.0.0 --port 50801 --reload" ; mf up ; sp -V --title "Frontend Server" -d "%~dp0frontend" cmd /k "set CONSOLE_NINJA_DISABLE=true && npx --yes vite@5.4.0"
 
 echo.
 echo Services started in Windows Terminal split panes.

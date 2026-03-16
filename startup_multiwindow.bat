@@ -21,7 +21,7 @@ timeout /t 2 /nobreak >nul
 
 echo [3/3] Starting Frontend Server (Port 50888)...
 cd frontend
-start "Frontend Server" cmd /k npm run dev -- --port 50888
+start "Frontend Server" cmd /k "set CONSOLE_NINJA_DISABLE=true && npx --yes vite@5.4.0"
 cd ..
 
 echo.
