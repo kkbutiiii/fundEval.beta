@@ -55,6 +55,7 @@ class PortfolioService:
         return Portfolio(
             id=db_portfolio.id,
             name=db_portfolio.name,
+            user_id=db_portfolio.user_id,
             funds=funds,
             created_at=db_portfolio.created_at,
             updated_at=db_portfolio.updated_at

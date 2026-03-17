@@ -56,6 +56,7 @@ class PortfolioUpdate(PortfolioBase):
 class Portfolio(PortfolioBase):
     """Portfolio response model."""
     id: str = Field(..., description="Portfolio ID")
+    user_id: Optional[int] = Field(None, description="User ID")
     funds: List[PortfolioFund] = Field(default_factory=list, description="List of funds")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Update timestamp")

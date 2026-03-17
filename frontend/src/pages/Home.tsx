@@ -63,10 +63,10 @@ const Home: React.FC = () => {
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <Title level={1} style={{ marginBottom: 16 }}>
             <FundOutlined style={{ marginRight: 12 }} />
-            基金实时估值系统
+            华福资管-基金实时估值平台
           </Title>
           <Text type="secondary" style={{ fontSize: 16 }}>
-            基于最新季报持仓数据，实时估算基金净值
+            {/* 基于最新季报持仓数据，实时估算基金净值 */}
           </Text>
         </div>
 
@@ -96,7 +96,7 @@ const Home: React.FC = () => {
                     基金组合管理
                   </Title>
                   <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
-                    创建多个基金组合，批量管理持仓，实时追踪组合收益
+                    创建基金组合，录入交易，追踪组合实时收益
                   </Text>
                 </div>
               </div>
@@ -115,7 +115,7 @@ const Home: React.FC = () => {
                     自选监控
                   </Title>
                   <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
-                    关注感兴趣的基金，实时查看估算净值和涨跌幅
+                    关注感兴趣的基金，实时查看估算净值和涨跌
                   </Text>
                 </div>
               </div>
@@ -171,7 +171,7 @@ const Home: React.FC = () => {
         </Card>
 
         {/* Features */}
-        <Row gutter={[24, 24]} style={{ marginTop: 48 }}>
+        {/* <Row gutter={[24, 24]} style={{ marginTop: 48 }}>
           <Col xs={24} md={8}>
             <Card>
               <Title level={4}>实时估算</Title>
@@ -196,7 +196,7 @@ const Home: React.FC = () => {
               </Text>
             </Card>
           </Col>
-        </Row>
+        </Row> */}
       </Content>
     </Layout>
   );
