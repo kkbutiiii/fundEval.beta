@@ -249,7 +249,7 @@
 
 .section-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
 }
 
 .section-title {
@@ -342,7 +342,7 @@
 
 /* Preview Showcase Section */
 .preview-section {
-  padding: var(--section-padding) 24px;
+  padding: 48px 24px;
   background: var(--bg-secondary);
 }
 
@@ -354,9 +354,9 @@
 .preview-item {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 64px;
+  gap: 48px;
   align-items: center;
-  margin-bottom: 120px;
+  margin-bottom: 48px;
 }
 
 .preview-item:last-child {
