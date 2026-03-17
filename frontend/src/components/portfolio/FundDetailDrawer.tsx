@@ -16,6 +16,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { TransactionHistory } from './TransactionHistory';
+import NavHistoryChart from '../NavHistoryChart';
 import type { PortfolioFund } from '../../types';
 
 const { Text, Title } = Typography;
@@ -149,6 +150,16 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
           fundCode={fund.fund_code}
           fundName={fund.fund_name}
         />
+      </div>
+
+      <Divider />
+
+      {/* NAV History Chart */}
+      <div style={{ marginTop: 16 }}>
+        <Title level={5}>历史净值走势</Title>
+        <div style={{ marginTop: 8 }}>
+          <NavHistoryChart fundCode={fund.fund_code} />
+        </div>
       </div>
     </Drawer>
   );

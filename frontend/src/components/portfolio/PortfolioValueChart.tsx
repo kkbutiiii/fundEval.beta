@@ -311,7 +311,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
             valueStyle={{ color: profitColor }}
           />
           <Statistic
-            title="区间涨跌"
+            title="资产变动"
             value={stats.changeRate}
             precision={2}
             suffix="%"

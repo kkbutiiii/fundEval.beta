@@ -32,7 +32,8 @@ interface PortfolioFundTableProps {
   onImport: () => void;
   onDelete: (fundCodes: string[]) => void;
   onRefresh: () => void;
-  onViewDetail: (fund: PortfolioFund) => void;
+  onViewDetail: (fund: PortfolioFund) => void;  // 查看详情按钮 - 交易记录抽屉
+  onViewFundDetail: (fund: PortfolioFund) => void;  // 基金简称点击 - 基金详情弹窗（新增）
   onBuy: (fund: PortfolioFund) => void;
   onSell: (fund: PortfolioFund) => void;
 }
@@ -45,6 +46,7 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
   onDelete,
   onRefresh,
   onViewDetail,
+  onViewFundDetail,
   onBuy,
   onSell,
 }) => {
@@ -112,7 +114,7 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       width: 180,
       ellipsis: true,
       render: (name: string, record: PortfolioFund) => (
-        <Link onClick={() => onViewDetail(record)} style={{ cursor: 'pointer' }}>
+        <Link onClick={() => onViewFundDetail(record)} style={{ cursor: 'pointer' }}>
           {name}
         </Link>
       ),

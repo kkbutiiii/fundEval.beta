@@ -15,6 +15,7 @@ import ImportFundsModal from '../components/portfolio/ImportFundsModal';
 import AddFundModal from '../components/portfolio/AddFundModal';
 import TransactionModal from '../components/portfolio/TransactionModal';
 import FundDetailDrawer from '../components/portfolio/FundDetailDrawer';
+import FundDetailModal from '../components/portfolio/FundDetailModal';
 import PortfolioValueChart from '../components/portfolio/PortfolioValueChart';
 import PortfolioReturnChart from '../components/portfolio/PortfolioReturnChart';
 import { api } from '../services/api';
@@ -55,6 +56,10 @@ const PortfolioManager: React.FC = () => {
   const [transactionType, setTransactionType] = useState<'buy' | 'sell'>('buy');
   const [transactionModalVisible, setTransactionModalVisible] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
+
+  // Fund detail modal state
+  const [fundDetailModalVisible, setFundDetailModalVisible] = useState(false);
+  const [selectedFundForDetail, setSelectedFundForDetail] = useState<PortfolioFund | null>(null);
 
   // Handle portfolio creation
   const handleCreatePortfolio = async (name: string) => {
@@ -197,6 +202,12 @@ const PortfolioManager: React.FC = () => {
     setDrawerVisible(true);
   };
 
+  // Handle fund name click - open fund detail modal
+  const handleViewFundDetail = (fund: PortfolioFund) => {
+    setSelectedFundForDetail(fund);
+    setFundDetailModalVisible(true);
+  };
+
   const handleBuy = (fund: PortfolioFund) => {
     setSelectedFund(fund);
     setTransactionType('buy');
@@ -283,7 +294,8 @@ const PortfolioManager: React.FC = () => {
                 onImport={() => setImportFundsVisible(true)}
                 onDelete={handleDeleteFunds}
                 onRefresh={refresh}
-                onViewDetail={handleViewDetail}
+                onViewDetail={handleViewDetail}        // 查看详情按钮 - 交易记录抽屉
+                onViewFundDetail={handleViewFundDetail}  // 基金简称点击 - 基金详情弹窗
                 onBuy={handleBuy}
                 onSell={handleSell}
               />
@@ -361,6 +373,13 @@ const PortfolioManager: React.FC = () => {
           setTransactionType('sell');
           setTransactionModalVisible(true);
         }}
+      />
+
+      {/* Fund Detail Modal */}
+      <FundDetailModal
+        visible={fundDetailModalVisible}
+        fundCode={selectedFundForDetail?.fund_code || null}
+        onClose={() => setFundDetailModalVisible(false)}
       />
     </Layout>
   );
