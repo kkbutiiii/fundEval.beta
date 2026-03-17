@@ -1,8 +1,8 @@
 /**
  * Summary card component showing portfolio statistics.
  */
-import React from 'react';
-import { Card, Row, Col, Typography, Statistic, Divider } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col, Typography, Statistic, Divider, Tag } from 'antd';
 import {
   WalletOutlined,
   RiseOutlined,
@@ -10,6 +10,7 @@ import {
   FundOutlined,
 } from '@ant-design/icons';
 import type { PortfolioFund } from '../../types';
+import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
 
@@ -17,13 +18,52 @@ interface PortfolioSummaryCardProps {
   funds: PortfolioFund[];
   portfolioName: string;
   lastUpdate: Date | null;
+  portfolioId?: string;
 }
 
 const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   funds,
   portfolioName,
   lastUpdate,
+  portfolioId,
 }) => {
+  // State for historical return rate
+  const [historyReturn, setHistoryReturn] = useState<number | null>(null);
+
+  // Fetch portfolio history to get return rate
+  useEffect(() => {
+    if (portfolioId) {
+      api.getPortfolioHistory(portfolioId, 'ytd', 'twr').then((data) => {
+        if (data.data?.length) {
+          setHistoryReturn(data.data[data.data.length - 1].return_rate);
+        }
+      });
+    }
+  }, [portfolioId]);
+
+  // Extract dates from funds
+  const dates = React.useMemo(() => {
+    const navDates = funds.map((f) => f.nav_date).filter(Boolean) as string[];
+    const estimationTimes = funds.map((f) => f.estimation_time).filter(Boolean) as string[];
+    return {
+      navDate: navDates[0] || '',
+      estimationTime: estimationTimes[0] || '',
+    };
+  }, [funds]);
+
+  // Format date string to MM-DD
+  const formatDateLabel = (dateStr: string): string => {
+    if (!dateStr) return '';
+    // Handle formats like "03/10" or "2025-03-10" or "03/11 15:30"
+    const parts = dateStr.split(/[-\/\s]/);
+    if (parts.length >= 2) {
+      // Get the last two parts (month and day)
+      const month = parts[parts.length - 2];
+      const day = parts[parts.length - 1];
+      return `${month}-${day}`;
+    }
+    return dateStr;
+  };
   // Calculate portfolio statistics
   const stats = React.useMemo(() => {
     if (funds.length === 0) {
@@ -77,6 +117,11 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
     return `${sign}${value.toFixed(2)}%`;
   };
 
+  const formatHistoryReturn = (value: number | null) => {
+    if (value === null) return '-';
+    return formatPercent(value);
+  };
+
   const getGrowthColor = (value: number) => {
     // Chinese stock market convention: red = up, green = down
     return value >= 0 ? '#cf1322' : '#3f8600';
@@ -97,9 +142,31 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
       </div>
 
       <Row gutter={[24, 16]}>
-        <Col xs={24} sm={12} md={6}>
+        {/* Historical Total Return */}
+        <Col xs={24} sm={12} md={6} lg={5}>
           <Statistic
-            title="估算总市值"
+            title="历史总收益"
+            value={historyReturn !== null ? historyReturn : 0}
+            precision={2}
+            formatter={(value) => (
+              <span style={{ color: getGrowthColor(Number(value)) }}>
+                {Number(value) >= 0 ? <RiseOutlined /> : <FallOutlined />}
+                {formatHistoryReturn(historyReturn)}
+              </span>
+            )}
+          />
+        </Col>
+        {/* Estimated Total Value */}
+        <Col xs={24} sm={12} md={6} lg={5}>
+          <Statistic
+            title={
+              <span>
+                估算总市值
+                <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px', color: '#999', borderColor: '#d9d9d9' }}>
+                  估
+                </Tag>
+              </span>
+            }
             value={stats.totalEstimatedValue}
             precision={2}
             formatter={(value) => formatCurrency(Number(value))}
@@ -107,9 +174,19 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
             valueStyle={{ color: '#1890ff' }}
           />
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        {/* Latest Total Value */}
+        <Col xs={24} sm={12} md={6} lg={5}>
           <Statistic
-            title="最新总市值"
+            title={
+              <span>
+                最新总市值
+                {dates.navDate && (
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 4 }}>
+                    ({formatDateLabel(dates.navDate)})
+                  </span>
+                )}
+              </span>
+            }
             value={stats.totalLatestValue}
             precision={2}
             formatter={(value) => formatCurrency(Number(value))}
@@ -117,9 +194,17 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
             valueStyle={{ color: '#1890ff' }}
           />
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        {/* Estimated Growth */}
+        <Col xs={24} sm={12} md={6} lg={5}>
           <Statistic
-            title="估算涨跌幅"
+            title={
+              <span>
+                估算涨跌幅
+                <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px', color: '#999', borderColor: '#d9d9d9' }}>
+                  估
+                </Tag>
+              </span>
+            }
             value={stats.totalEstimatedGrowth}
             precision={2}
             formatter={(value) => (
@@ -130,9 +215,19 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
             )}
           />
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        {/* Latest Growth */}
+        <Col xs={24} sm={12} md={6} lg={4}>
           <Statistic
-            title="最新涨跌幅"
+            title={
+              <span>
+                最新涨跌幅
+                {dates.navDate && (
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 4 }}>
+                    ({formatDateLabel(dates.navDate)})
+                  </span>
+                )}
+              </span>
+            }
             value={stats.totalLatestGrowth}
             precision={2}
             formatter={(value) => (

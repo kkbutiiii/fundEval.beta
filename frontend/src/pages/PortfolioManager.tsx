@@ -284,6 +284,7 @@ const PortfolioManager: React.FC = () => {
                 funds={fundsWithRealtime}
                 portfolioName={currentPortfolio.name}
                 lastUpdate={lastUpdate}
+                portfolioId={currentPortfolio.id}
               />
 
               {/* Fund Table */}
