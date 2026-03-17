@@ -65,9 +65,13 @@ class ApiService {
 
   /**
    * Get fund holdings.
+   * @param fundCode - Fund code
+   * @param refresh - Force refresh data from API, skip cache (default: false)
    */
-  async getFundHoldings(fundCode: string): Promise<Fund> {
-    const response = await this.client.get<Fund>(`/funds/${fundCode}/holdings`);
+  async getFundHoldings(fundCode: string, refresh: boolean = false): Promise<Fund> {
+    const response = await this.client.get<Fund>(`/funds/${fundCode}/holdings`, {
+      params: refresh ? { refresh: true } : undefined
+    });
     return response.data;
   }
 
@@ -282,10 +286,10 @@ class ApiService {
   /**
    * Get portfolio historical value and return data.
    */
-  async getPortfolioHistory(portfolioId: string, period: string = '30d'): Promise<PortfolioHistory> {
+  async getPortfolioHistory(portfolioId: string, period: string = '30d', calculationMethod: string = 'twr'): Promise<PortfolioHistory> {
     const response = await this.client.get<PortfolioHistory>(
       `/portfolios/${portfolioId}/history`,
-      { params: { period } }
+      { params: { period, calculation_method: calculationMethod } }
     );
     return response.data;
   }

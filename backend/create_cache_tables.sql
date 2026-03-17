@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS portfolio_return_cache (
     return_rate DECIMAL(10, 4),
     twr DECIMAL(10, 4),
     xirr DECIMAL(10, 4),
+    -- TWR calculation: Fund-of-Funds perspective
+    fund_shares DECIMAL(20, 8),     -- 母基金份额（仅在资金进出时变化）
+    fund_nav DECIMAL(15, 6),        -- 母基金净值
+    -- Cache version for invalidation
+    calculation_version INTEGER DEFAULT 1,  -- 缓存版本，算法更新时递增
     is_estimated BOOLEAN DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

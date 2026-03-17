@@ -32,7 +32,7 @@ const FundDetail: React.FC = () => {
   // Watchlist functionality
   const { isInWatchlist, addToWatchlist, removeFromWatchlist } = useWatchlist();
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh: boolean = false) => {
     if (!fundCode) return;
 
     setLoading(true);
@@ -43,9 +43,9 @@ const FundDetail: React.FC = () => {
       const info = await api.getFundInfo(fundCode).catch(() => null);
       if (info) setFundInfo(info);
 
-      // Step 2: Load holdings (slow - 30s+)
+      // Step 2: Load holdings (slow - 30s+ if force refresh)
       // This is needed for holdings display
-      api.getFundHoldings(fundCode)
+      api.getFundHoldings(fundCode, forceRefresh)
         .then((holdingsData) => {
           if (holdingsData) setFundHoldings(holdingsData);
         })
@@ -164,10 +164,11 @@ const FundDetail: React.FC = () => {
                 <Button
                   type="primary"
                   icon={<ReloadOutlined />}
-                  onClick={loadData}
+                  onClick={() => loadData(true)}
                   loading={loading}
+                  title="强制刷新会跳过所有缓存，直接从API获取最新数据（耗时较长，约30秒+）"
                 >
-                  刷新
+                  强制刷新
                 </Button>
               </Space>
             </Col>

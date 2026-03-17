@@ -108,19 +108,46 @@ class FundService:
 
         return fund
 
-    async def get_fund_holdings(self, fund_code: str) -> Optional[Fund]:
+    async def get_fund_holdings(self, fund_code: str, refresh: bool = False) -> Optional[Fund]:
         """
         Get fund holdings data.
         优先从本地数据库读取，未命中则从TTJJ API获取并保存到数据库。
 
         Args:
             fund_code: Fund code
+            refresh: Force refresh data from API, skip all cache (default: False)
 
         Returns:
             Fund object with holdings or None
         """
         fund_code = self._normalize_fund_code(fund_code)
         cache_key = f"holdings_{fund_code}"
+
+        # 强制刷新模式：跳过所有缓存，直接从API获取
+        if refresh:
+            print(f"[Force Refresh] Fetching fund {fund_code} holdings directly from TTJJ API...")
+            try:
+                fund = await self._fetch_from_ttjj(fund_code)
+                if fund:
+                    # 保存到数据库（更新缓存）
+                    try:
+                        async with AsyncSessionLocal() as db:
+                            await fund_data_db_service.save_fund_data_to_db(fund, db)
+                            print(f"[DB] Fund {fund_code} data saved to database (force refresh)")
+                    except Exception as e:
+                        print(f"[DB] Failed to save to database: {e}")
+
+                    # 存入内存缓存（更新缓存）
+                    cache_data = fund.model_dump()
+                    cache.set("fund_holdings", cache_key, cache_data,
+                             self.settings.cache_ttl_fund_holdings)
+
+                return fund
+            except Exception as e:
+                print(f"[Force Refresh] Error fetching fund {fund_code}: {e}")
+                import traceback
+                traceback.print_exc()
+                return None
 
         # 1. 优先检查内存缓存
         cached = cache.get("fund_holdings", cache_key, self.settings.cache_ttl_fund_holdings)
@@ -260,6 +287,14 @@ class FundService:
                 change_percent=ch.change_percent
             ))
             convertible_total_weight += ch.ratio
+
+        # 验证可转债数据合理性
+        if len(convertible_holding_models) > 100:
+            print(f"[Warning] Abnormal convertible bond count: {len(convertible_holding_models)} (expected <= 100)")
+            print(f"[Warning] Total convertible weight: {convertible_total_weight:.2f}% (should be < 100%)")
+            print(f"[Suggestion] This may indicate duplicate data from multiple report periods")
+        if convertible_total_weight > 100:
+            print(f"[Warning] Abnormal convertible total weight: {convertible_total_weight:.2f}% > 100%")
 
         # 处理资产配置
         if allocations:

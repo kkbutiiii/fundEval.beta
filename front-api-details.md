@@ -96,6 +96,13 @@ api.getBatchValuation(['000001', '005827', '161725', ...])
 |----------|------|------|
 | `GET` | `/api/v1/funds/{fundCode}/info` | 获取基金基本信息 |
 | `GET` | `/api/v1/funds/{fundCode}/holdings` | 获取基金持仓数据 |
+| `GET` | `/api/v1/funds/{fundCode}/holdings?refresh=true` | **强制刷新**持仓数据（跳过缓存） |
+
+**强制刷新功能**:
+- **用途**: 当持仓数据可能不是最新时，手动强制从 TTJJ API 获取
+- **触发方式**: 点击页面右上角"强制刷新"按钮
+- **性能影响**: 跳过内存缓存和数据库缓存，耗时约30秒+
+- **实现原理**: 后端 `refresh=true` 参数直接调用 TTJJ API，获取后更新缓存
 
 **使用的子组件及其 API**:
 
@@ -203,7 +210,7 @@ api.getBatchValuation(['000001', '005827', '161725', ...])
 | `GET` | `/search` | 搜索基金 |
 | `GET` | `/all` | 获取所有基金 |
 | `GET` | `/{fund_code}/info` | 获取基金信息 |
-| `GET` | `/{fund_code}/holdings` | 获取基金持仓 |
+| `GET` | `/{fund_code}/holdings` | 获取基金持仓 (支持 `?refresh=true` 强制刷新) |
 | `GET` | `/{fund_code}/asset-allocation` | 获取资产配置历史 |
 | `GET` | `/{fund_code}/intraday-valuation` | 获取日内估值 |
 | `GET` | `/{fund_code}/nav-history` | 获取净值历史 |
@@ -299,12 +306,25 @@ DATABASE_URL=sqlite:///./fund_valuation.db
 | 基金详情 | 5分钟 | `funds.py` 内存缓存 |
 | 净值历史 | 1小时 | `funds.py` 内存缓存 |
 | 基金列表 | 1天 | `fund_list_cache.py` |
-| 持仓数据 | 1天 | `cache.py` |
+| 持仓数据 | 1天 | `cache.py` + 数据库 |
 | 股票价格 | 5秒 | `cache.py` |
 | 估值数据 | 10秒 | `cache.py` |
+
+### 强制刷新机制
+
+对于**持仓数据**支持强制刷新：
+- **正常加载**: 内存缓存 → 数据库缓存 → TTJJ API
+- **强制刷新** (`?refresh=true`): 跳过所有缓存，直接调用 TTJJ API
+- **刷新后**: 新数据会更新到数据库和内存缓存中
+- **适用场景**: 当怀疑缓存数据不是最新时
+
+**实现文件**:
+- 后端: `backend/app/services/fund_service.py` - `get_fund_holdings(refresh=True)`
+- 路由: `backend/app/routers/funds.py` - `/{fund_code}/holdings?refresh=true`
+- 前端: `frontend/src/pages/FundDetail.tsx` - "强制刷新"按钮
 
 ---
 
 ## 文档生成时间
 
-生成日期: 2026-03-12
+生成日期: 2026-03-17

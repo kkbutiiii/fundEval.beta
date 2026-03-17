@@ -203,13 +203,19 @@ class PortfolioHistoryResponse(BaseModel):
 async def get_portfolio_history(
     portfolio_id: str,
     period: str = Query("30d", regex="^(30d|60d|6m|ytd)$"),
+    calculation_method: str = Query("twr", regex="^(twr|holding_return)$"),
     db: AsyncSession = Depends(get_db)
 ):
     """Get portfolio historical value and return data.
 
     - **period**: Time period (30d, 60d, 6m, ytd)
+    - **calculation_method**: Return calculation method (twr, holding_return)
+        - twr: Time-Weighted Return, eliminates impact of cash flows
+        - holding_return: Holding return based on weighted cost method
     """
-    history = await portfolio_service.get_portfolio_history(db, portfolio_id, period)
+    history = await portfolio_service.get_portfolio_history(
+        db, portfolio_id, period, calculation_method=calculation_method
+    )
     if not history:
         raise HTTPException(status_code=404, detail="Portfolio not found")
     return PortfolioHistoryResponse(**history)

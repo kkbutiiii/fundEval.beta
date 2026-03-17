@@ -165,14 +165,15 @@ async def get_fund_info(fund_code: str):
 
 
 @router.get("/{fund_code}/holdings", response_model=Fund)
-async def get_fund_holdings(fund_code: str):
+async def get_fund_holdings(fund_code: str, refresh: bool = False):
     """
     Get holdings data for a specific fund.
 
     - **fund_code**: Fund code (e.g., 000001)
+    - **refresh**: Force refresh data from API, skip cache (default: False)
     """
     try:
-        fund = await fund_service.get_fund_holdings(fund_code)
+        fund = await fund_service.get_fund_holdings(fund_code, refresh=refresh)
         if not fund:
             raise HTTPException(status_code=404, detail=f"Fund {fund_code} holdings not found")
         return fund

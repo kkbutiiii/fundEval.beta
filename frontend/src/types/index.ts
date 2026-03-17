@@ -305,6 +305,9 @@ export interface PortfolioHistoryPoint {
   twr?: number;          // Time-Weighted Return (%)
   xirr?: number;         // Money-Weighted Return/XIRR (% annualized)
   is_estimated?: boolean; // Whether data is based on estimated NAV
+  // TWR calculation fields (Fund-of-Funds perspective)
+  fund_shares?: number;   // 母基金份额（仅在资金进出时变化）
+  fund_nav?: number;      // 母基金净值
 }
 
 /** Portfolio history response */

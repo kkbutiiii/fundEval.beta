@@ -3,8 +3,8 @@
  * Displays historical return rate trends with daily profit bars
  */
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider, Tooltip } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider, Tooltip, Button, message } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { PortfolioHistory } from '../../types';
 import { api } from '../../services/api';
 
@@ -25,7 +25,9 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PortfolioHistory | null>(null);
   const [period, setPeriod] = useState('30d');
+  const [calculationMethod, setCalculationMethod] = useState<'twr' | 'holding_return'>('twr');
   const [echartsReady, setEchartsReady] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
   const chartInstance = React.useRef<any>(null);
   const echartsModule = React.useRef<any>(null);
@@ -46,7 +48,7 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
 
       setLoading(true);
       try {
-        const result = await api.getPortfolioHistory(portfolioId, period);
+        const result = await api.getPortfolioHistory(portfolioId, period, calculationMethod);
         setData(result);
       } catch (error) {
         console.error('Failed to fetch portfolio history:', error);
@@ -56,7 +58,7 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
     };
 
     fetchData();
-  }, [portfolioId, period]);
+  }, [portfolioId, period, calculationMethod]);
 
   useEffect(() => {
     if (!data?.data?.length || !chartRef.current || !echartsReady || !echartsModule.current) {
@@ -237,6 +239,31 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
     setPeriod(e.target.value);
   };
 
+  const handleCalculationMethodChange = (e: any) => {
+    setCalculationMethod(e.target.value);
+  };
+
+  const handleRecalculate = async () => {
+    if (!portfolioId) return;
+
+    setRecalculating(true);
+    try {
+      // 调用API清除缓存
+      await api.refreshPortfolioCache(portfolioId);
+      message.success('缓存已清除，正在重新计算...');
+
+      // 重新获取数据
+      const result = await api.getPortfolioHistory(portfolioId, period, calculationMethod);
+      setData(result);
+      message.success('重新计算完成');
+    } catch (error) {
+      console.error('Failed to recalculate:', error);
+      message.error('重新计算失败');
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   // Calculate statistics
   const stats = React.useMemo(() => {
     if (!data?.data?.length) return null;
@@ -286,13 +313,31 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       title="收益率走势"
       style={{ height: '100%' }}
       extra={
-        <Radio.Group value={period} onChange={handlePeriodChange} size="small">
-          {PERIOD_OPTIONS.map((opt) => (
-            <Radio.Button key={opt.value} value={opt.value}>
-              {opt.label}
-            </Radio.Button>
-          ))}
-        </Radio.Group>
+        <Space>
+          {/* 重新计算按钮 */}
+          <Tooltip title="清除缓存并重新计算">
+            <Button
+              icon={<ReloadOutlined spin={recalculating} />}
+              onClick={handleRecalculate}
+              loading={recalculating}
+              size="small"
+            >
+              重新计算
+            </Button>
+          </Tooltip>
+
+          <Radio.Group value={calculationMethod} onChange={handleCalculationMethodChange} size="small" optionType="button" buttonStyle="solid">
+            <Radio.Button value="holding_return">持仓收益率</Radio.Button>
+            <Radio.Button value="twr">时间加权(TWR)</Radio.Button>
+          </Radio.Group>
+          <Radio.Group value={period} onChange={handlePeriodChange} size="small">
+            {PERIOD_OPTIONS.map((opt) => (
+              <Radio.Button key={opt.value} value={opt.value}>
+                {opt.label}
+              </Radio.Button>
+            ))}
+          </Radio.Group>
+        </Space>
       }
     >
       {stats && (
@@ -329,9 +374,19 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
           收益率计算说明：
         </Text>
         <div style={{ marginLeft: 16, marginTop: 4 }}>
-          <div>• <strong>简单收益率</strong> = (总市值 - 总成本) / 总成本 × 100%</div>
-          <div>• <strong>时间加权(TWR)</strong> = ∏(1 + 区间收益率) - 1，剔除资金进出影响</div>
-          <div>• <strong>资金加权(XIRR)</strong> = 考虑时间价值的年化收益率</div>
+          {calculationMethod === 'twr' ? (
+            <>
+              <div>• <strong>时间加权(TWR)</strong> = 母基金净值累积收益率，剔除资金进出影响</div>
+              <div>• 将组合视为母基金，份额仅在资金进出时变化，内部调仓不影响</div>
+              <div>• 可与基金净值走势直接对比，反映投资能力</div>
+            </>
+          ) : (
+            <>
+              <div>• <strong>持仓收益率</strong> = (当前持仓市值 - 持仓成本) / 持仓成本 × 100%</div>
+              <div>• 持仓成本 = 累计买入金额 - 累计卖出金额（加权成本法）</div>
+              <div>• 反映当前持仓的实际盈亏情况，卖出盈利会直接扣减成本</div>
+            </>
+          )}
           <div>• <strong>当日收益额柱状图</strong>：红色=盈利，绿色=亏损，半透明=使用估算净值</div>
         </div>
       </div>

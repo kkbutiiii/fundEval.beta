@@ -145,8 +145,16 @@ class TTJJClient:
         # 查找报告期信息，如 "2024年4季度股票投资明细"
         match = re.search(r'(\d{4})年(\d)季度', html)
         if match:
-            year = match.group(1)
+            year = int(match.group(1))
             quarter = int(match.group(2))
+
+            # 验证日期合理性：不应该是未来的年份
+            from datetime import datetime
+            current_year = datetime.now().year
+            if year > current_year:
+                print(f"[Warning] Future year detected: {year}, using current year {current_year}")
+                year = current_year
+
             # 转换为季度末日期
             month = quarter * 3
             day = 31 if month in [3, 12] else 30
@@ -399,13 +407,30 @@ class TTJJClient:
 
             # 只提取第一个表格的数据（最新报告期）
             # HTML中包含多个报告期的表格，找到第一个<table>...</table>
-            table_match = re.search(r'<table[^>]*>.*?</table>', html, re.DOTALL | re.IGNORECASE)
+            # 使用更精确的正则，确保匹配完整的第一个表格
+            table_match = re.search(r'<table[^>]*>(.*?)</table>', html, re.DOTALL | re.IGNORECASE)
             if table_match:
-                first_table_html = table_match.group(0)
+                # 添加表格标签以保持结构完整
+                first_table_html = f"<table>{table_match.group(1)}</table>"
             else:
                 first_table_html = html
 
-            rows = re.findall(r'<tr>(.*?)</tr>', first_table_html, re.DOTALL)
+            # 验证：检查第一个表格中是否包含多个报告期的数据
+            # 如果有多期数据，需要只取最新一期的部分
+            date_headers = re.findall(r'(\d{4})年(\d)季度', first_table_html)
+            unique_dates = sorted(set(date_headers), key=lambda x: (x[0], x[1]), reverse=True)
+            if len(unique_dates) > 1:
+                print(f"[Warning] Table contains {len(unique_dates)} report periods: {unique_dates}, keeping only the first one")
+                # 如果有多个报告期，尝试只提取第一个报告期的数据
+                # 查找第二个报告期的起始位置，并截断
+                second_period_marker = f"{unique_dates[1][0]}年{unique_dates[1][1]}季度"
+                if second_period_marker in first_table_html:
+                    cutoff_pos = first_table_html.find(second_period_marker)
+                    if cutoff_pos > 0:
+                        first_table_html = first_table_html[:cutoff_pos]
+                        print(f"[Debug] Truncated table at position {cutoff_pos}")
+
+            rows = re.findall(r'<tr[^>]*>(.*?)</tr>', first_table_html, re.DOTALL | re.IGNORECASE)
             regular_bonds = []
             convertible_bonds = []
 

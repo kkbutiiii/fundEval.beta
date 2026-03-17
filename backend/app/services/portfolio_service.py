@@ -741,7 +741,8 @@ class PortfolioService:
         db: AsyncSession,
         portfolio_id: str,
         period: str = '30d',
-        use_cache: bool = True
+        use_cache: bool = True,
+        calculation_method: str = 'twr'
     ) -> Optional[dict]:
         """Get portfolio historical value and return data.
 
@@ -785,6 +786,10 @@ class PortfolioService:
                 'data': []
             }
 
+        # Clear outdated cache entries (algorithm version < 2)
+        if use_cache:
+            await cls.invalidate_outdated_cache(db, portfolio_id, min_version=2)
+
         # Try to get from cache first
         cached_data = []
         if use_cache:
@@ -806,11 +811,21 @@ class PortfolioService:
         missing_dates = [d for d in all_dates if d not in cached_dates]
 
         if not missing_dates:
-            # All data is cached, return cached data
+            # All data is cached, apply calculation_method before returning
+            print(f"[Cache Hit All] Portfolio {portfolio_id}: {len(cached_data)} days, method={calculation_method}")
+            all_data = sorted(cached_data, key=lambda x: x['date'])
+            for item in all_data:
+                if calculation_method == 'twr':
+                    # Use TWR as the main return rate
+                    old_val = item['return_rate']
+                    new_val = item.get('twr', item['return_rate'])
+                    item['return_rate'] = new_val
+                    print(f"[TWR Apply] {item['date']}: return_rate {old_val} -> {new_val}")
+                # For 'holding_return', keep the original return_rate
             return {
                 'portfolio_id': portfolio_id,
                 'period': period,
-                'data': sorted(cached_data, key=lambda x: x['date'])
+                'data': all_data
             }
 
         print(f"[Cache Miss] Portfolio {portfolio_id}: {len(missing_dates)} days need calculation")
@@ -897,13 +912,18 @@ class PortfolioService:
                     except Exception as e:
                         print(f"Error getting NAV for {holding.fund_code} on {date_str}: {e}")
 
-        # Second pass: Calculate returns and profits
+        # Second pass: Calculate returns and profits using Fund-of-Funds perspective
         history_data = []
         sorted_dates = sorted(daily_data.keys())
 
-        # For TWR calculation: track sub-period returns between cash flows
-        sub_period_start_value = None
-        sub_period_start_index = 0
+        # For TWR calculation using Fund-of-Funds perspective
+        # 母基金份额：仅在资金进出时变化
+        # 母基金净值 = 组合总市值 / 母基金份额
+        fund_shares = 0.0      # 母基金份额
+        fund_nav = 1.0         # 母基金净值（首日设为1.0）
+        prev_fund_nav = 1.0    # 前一日母基金净值
+        base_nav = None        # 首日净值基准
+        prev_total_value = 0.0 # 前一日总市值
 
         for i, date_str in enumerate(sorted_dates):
             data = daily_data[date_str]
@@ -911,54 +931,73 @@ class PortfolioService:
             total_cost = sum(data['costs'].values())
             total_profit = total_value - total_cost
 
-            # Calculate daily profit: today's value - yesterday's value - cash_flow
-            daily_profit = 0.0
-            if i > 0:
-                prev_date = sorted_dates[i - 1]
-                prev_value = sum(daily_data[prev_date]['values'].values())
-                daily_profit = total_value - prev_value - data['cash_flow']
-
-            # Simple Return Rate: (Total Value - Total Cost) / Total Cost
+            # 持仓收益率（简单收益率）
             simple_return = ((total_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
 
-            # TWR (Time-Weighted Return) calculation
-            # TWR = product of (1 + sub_period_return) - 1
-            twr = simple_return  # Default to simple return if no cash flows
+            # ============================================
+            # 修复2：TWR使用母基金视角计算（修正版）
+            # ============================================
+            # 核心逻辑：
+            # 1. 母基金净值跟踪底层基金表现（NAV变化的加权平均）
+            # 2. 资金进出只影响份额，不影响NAV
+            # 3. TWR = (当日母基金净值 / 首日母基金净值 - 1) * 100%
+            daily_cash_flow = data['cash_flow']  # 正值=流入(申购)，负值=流出(赎回)
 
-            # Calculate daily TWR component based on NAV changes (not cash flows)
-            daily_nav_return = 0.0
-            total_weight = 0.0
+            if i == 0:
+                # 首日初始化
+                if total_value > 0:
+                    fund_shares = total_value / fund_nav
+                base_nav = fund_nav
+                twr = 0.0
+            else:
+                # 非首日：
+                # Step 1: 母基金净值跟踪底层基金表现
+                # 计算各基金NAV变化的加权平均
+                prev_date = sorted_dates[i - 1]
+                weighted_nav_change = 0.0
+                total_weight = 0.0
 
-            for fund_code, market_value in data['values'].items():
-                if market_value > 0:
-                    weight = market_value / total_value if total_value > 0 else 0
-                    total_weight += weight
+                for fund_code, market_value in data['values'].items():
+                    if market_value > 0:
+                        weight = market_value / total_value if total_value > 0 else 0
+                        total_weight += weight
 
-                    # Get previous day's NAV for this fund
-                    if i > 0:
-                        prev_date = sorted_dates[i - 1]
+                        # 获取该基金前一日的NAV
                         prev_nav_data = fund_nav_history.get(fund_code, {}).get(prev_date)
                         curr_nav_data = fund_nav_history.get(fund_code, {}).get(date_str)
 
                         if prev_nav_data and curr_nav_data and prev_nav_data['nav'] > 0:
-                            fund_return = (curr_nav_data['nav'] - prev_nav_data['nav']) / prev_nav_data['nav'] * 100
-                            daily_nav_return += weight * fund_return
+                            fund_return = (curr_nav_data['nav'] - prev_nav_data['nav']) / prev_nav_data['nav']
+                            weighted_nav_change += weight * fund_return
 
-            # Calculate cumulative TWR from daily NAV returns
-            if i == 0:
-                twr = 0.0
-            else:
-                prev_data = history_data[i - 1]
-                prev_twr = prev_data.get('twr', 0.0)
-                # TWR compounds: (1 + r1) * (1 + r2) - 1
-                twr = ((1 + prev_twr / 100) * (1 + daily_nav_return / 100) - 1) * 100
+                # 更新母基金净值：NAV_today = NAV_yesterday * (1 + weighted_return)
+                if total_weight > 0:
+                    fund_nav = fund_nav * (1 + weighted_nav_change)
+
+                # Step 2: 处理资金进出，调整份额
+                if daily_cash_flow != 0:
+                    if fund_nav > 0:
+                        share_change = daily_cash_flow / fund_nav
+                        fund_shares += share_change
+
+                # Step 3: 计算TWR
+                if base_nav and base_nav > 0:
+                    twr = (fund_nav / base_nav - 1) * 100
+                else:
+                    twr = 0.0
+
+            # ============================================
+            # 当日收益额 = 前一日总市值 * 母基金NAV变化率
+            # 排除资金进出影响，真实反映持仓资产价值变化
+            # ============================================
+            daily_profit = 0.0
+            if i > 0 and prev_fund_nav > 0:
+                nav_change_rate = (fund_nav - prev_fund_nav) / prev_fund_nav
+                daily_profit = prev_total_value * nav_change_rate
 
             # XIRR calculation (simplified - using simple return as approximation)
-            # Full XIRR requires solving for rate where NPV = 0
-            # For now, we approximate with annualized simple return
             days_since_start = i
             if days_since_start > 0 and simple_return != 0:
-                # Annualized return: (1 + r)^(365/days) - 1
                 xirr = ((1 + simple_return / 100) ** (365 / days_since_start) - 1) * 100
             else:
                 xirr = None
@@ -969,13 +1008,19 @@ class PortfolioService:
                 'total_cost': round(total_cost, 2),
                 'total_profit': round(total_profit, 2),
                 'daily_profit': round(daily_profit, 2),
-                'return_rate': round(simple_return, 4),  # Simple return (main metric)
-                'twr': round(twr, 4),  # Time-Weighted Return
-                'xirr': round(xirr, 4) if xirr is not None else None,  # Money-Weighted Return
+                'return_rate': round(simple_return, 4),  # 持仓收益率
+                'twr': round(twr, 4),  # TWR (母基金视角)
+                'xirr': round(xirr, 4) if xirr is not None else None,
                 'is_estimated': data['is_estimated'],
+                'fund_shares': round(fund_shares, 8),  # 母基金份额
+                'fund_nav': round(fund_nav, 6),        # 母基金净值
             }
 
             history_data.append(history_item)
+
+            # 更新前一日的值，用于下一次迭代的当日收益额计算
+            prev_fund_nav = fund_nav
+            prev_total_value = total_value
 
         # Save newly calculated data to cache
         if history_data:
@@ -985,11 +1030,23 @@ class PortfolioService:
         # Merge cached data and newly calculated data
         all_data = cached_data + history_data
 
+        # Sort by date
+        all_data = sorted(all_data, key=lambda x: x['date'])
+
+        # Apply calculation_method: adjust return_rate based on method
+        # return_rate in cache is simple_return (holding_return)
+        # twr is calculated separately
+        for item in all_data:
+            if calculation_method == 'twr':
+                # Use TWR as the main return rate
+                item['return_rate'] = item.get('twr', item['return_rate'])
+            # For 'holding_return', keep the original return_rate (simple_return)
+
         # Sort by date and return
         return {
             'portfolio_id': portfolio_id,
             'period': period,
-            'data': sorted(all_data, key=lambda x: x['date'])
+            'data': all_data
         }
 
     @classmethod
@@ -1163,8 +1220,13 @@ class PortfolioService:
                     'twr': float(c.twr) if c.twr else 0,
                     'xirr': float(c.xirr) if c.xirr else None,
                     'is_estimated': c.is_estimated,
+                    'fund_shares': float(c.fund_shares) if c.fund_shares else 0,
+                    'fund_nav': float(c.fund_nav) if c.fund_nav else 0,
+                    'calculation_version': c.calculation_version if c.calculation_version else 1,
                 }
                 for c in cached
+                # 只返回最新版本的缓存数据
+                if (c.calculation_version or 1) >= 2
             ]
         except Exception as e:
             print(f"Error reading portfolio cache: {e}")
@@ -1194,6 +1256,9 @@ class PortfolioService:
                     existing.twr = item.get('twr', 0)
                     existing.xirr = item.get('xirr')
                     existing.is_estimated = item.get('is_estimated', False)
+                    existing.fund_shares = item.get('fund_shares', 0)
+                    existing.fund_nav = item.get('fund_nav', 0)
+                    existing.calculation_version = 2  # 新版本号
                     existing.updated_at = datetime.utcnow()
                 else:
                     cached = PortfolioReturnCacheDB(
@@ -1206,7 +1271,10 @@ class PortfolioService:
                         return_rate=item['return_rate'],
                         twr=item.get('twr', 0),
                         xirr=item.get('xirr'),
-                        is_estimated=item.get('is_estimated', False)
+                        is_estimated=item.get('is_estimated', False),
+                        fund_shares=item.get('fund_shares', 0),
+                        fund_nav=item.get('fund_nav', 0),
+                        calculation_version=2  # 新版本号
                     )
                     db.add(cached)
             await db.flush()
@@ -1231,6 +1299,27 @@ class PortfolioService:
             print(f"[Cache] Invalidated {result.rowcount} cached entries for portfolio {portfolio_id}")
         except Exception as e:
             print(f"Error invalidating portfolio cache: {e}")
+
+    @classmethod
+    async def invalidate_outdated_cache(cls, db: AsyncSession, portfolio_id: str, min_version: int = 2):
+        """Invalidate cache entries with outdated calculation version.
+
+        This ensures old algorithm results are recalculated with new TWR logic.
+        """
+        try:
+            query = delete(PortfolioReturnCacheDB).where(
+                PortfolioReturnCacheDB.portfolio_id == portfolio_id
+            ).where(
+                (PortfolioReturnCacheDB.calculation_version.is_(None)) |
+                (PortfolioReturnCacheDB.calculation_version < min_version)
+            )
+
+            result = await db.execute(query)
+            await db.flush()
+            if result.rowcount > 0:
+                print(f"[Cache] Invalidated {result.rowcount} outdated cache entries for portfolio {portfolio_id}")
+        except Exception as e:
+            print(f"Error invalidating outdated cache: {e}")
 
 
 portfolio_service = PortfolioService()
