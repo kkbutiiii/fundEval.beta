@@ -17,6 +17,9 @@ C:\Users\11639\Documents\trae_projects\0311-FundEval.Beta
 ├── backend/                    # fundEval 主后端 (端口 50801)
 │   ├── app/                    # FastAPI 应用
 │   │   ├── db_models/          # 数据库模型
+│   │   │   ├── user.py                # 用户表模型 ⭐新增
+│   │   │   ├── watchlist.py           # 自选基金表模型 ⭐新增
+│   │   │   ├── portfolio.py           # 组合/持仓表模型
 │   │   │   ├── fund_nav_cache.py      # 基金净值缓存表
 │   │   │   └── portfolio_return_cache.py # FOF收益曲线缓存表
 │   │   └── services/           # 业务逻辑
@@ -144,12 +147,21 @@ npm install
 - **前端**: React + TypeScript + Vite + Ant Design + ECharts
 - **后端**: FastAPI + SQLAlchemy + SQLite
 - **功能**:
+  - 用户认证（注册/登录/JWT Token）⭐新增
   - 基金搜索、详情查看、自选列表
   - 组合管理（支持交易记录、市值曲线、收益率曲线）
   - 净值日期显示
   - 实时估值数据展示
 
 ### 最近更新
+
+#### 2026-03-17 用户认证系统
+
+- **功能**: 新增完整的用户认证系统
+- **后端**: JWT Token 认证、用户注册/登录/登出 API
+- **前端**: 登录页、注册页、受保护路由
+- **数据库**: users 表、watchlists 表（用户自选）
+- **修复**: WatchlistDB SQLAlchemy relationship 缺失问题
 
 #### 2026-03-17 基金详情页强制刷新功能
 - **功能**: 基金详情页"刷新"按钮升级为"强制刷新"

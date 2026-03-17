@@ -24,6 +24,8 @@ backend/
 │   ├── database.py             # 数据库连接和会话管理 ⭐新增
 │   ├── db_models/              # SQLAlchemy 数据库模型 ⭐新增
 │   │   ├── __init__.py
+│   │   ├── user.py             # 用户表模型 ⭐新增
+│   │   ├── watchlist.py        # 自选基金表模型 ⭐新增
 │   │   ├── portfolio.py        # 组合/持仓表模型
 │   │   ├── transaction.py      # 交易记录表模型 ⭐新增
 │   │   ├── fund_nav_cache.py   # 基金净值缓存表 ⭐新增
@@ -34,8 +36,10 @@ backend/
 │   │   ├── portfolio.py        # 组合管理模型 ⭐新增
 │   │   └── transaction.py      # 交易记录模型 ⭐新增
 │   ├── routers/                # API 路由
+│   │   ├── auth.py             # 用户认证接口 ⭐新增
 │   │   ├── funds.py            # 基金相关接口
-│   │   └── portfolios.py       # 组合管理接口 ⭐新增
+│   │   ├── portfolios.py       # 组合管理接口 ⭐新增
+│   │   └── watchlist.py        # 自选基金接口 ⭐新增
 │   ├── services/               # 业务逻辑服务
 │   │   ├── fund_service.py     # 基金数据获取 (DB优先) ⭐更新
 │   │   ├── fund_data_db_service.py  # 基金数据库查询 ⭐新增
@@ -100,6 +104,69 @@ docker-compose up -d backend
 ```
 
 ## API 端点列表
+
+### 用户认证 ⭐新增
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/api/v1/auth/register` | 用户注册 |
+| POST | `/api/v1/auth/login` | 用户登录（返回 JWT Token） |
+| POST | `/api/v1/auth/logout` | 用户登出 |
+| GET | `/api/v1/auth/me` | 获取当前登录用户信息 |
+| POST | `/api/v1/auth/refresh` | 刷新访问令牌 |
+
+#### 认证流程
+
+**1. 注册新用户:**
+```bash
+curl -X POST "http://localhost:50801/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "TestPass123"
+  }'
+```
+
+**2. 用户登录:**
+```bash
+curl -X POST "http://localhost:50801/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "password": "TestPass123"
+  }'
+```
+
+**响应示例:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": {
+    "id": 1,
+    "username": "testuser",
+    "is_admin": false,
+    "created_at": "2026-03-17T08:00:00"
+  }
+}
+```
+
+**3. 访问受保护资源:**
+```bash
+curl "http://localhost:50801/api/v1/auth/me" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+```
+
+### 自选基金 ⭐新增
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v1/watchlist` | 获取用户的自选基金列表 |
+| POST | `/api/v1/watchlist` | 添加基金到自选 |
+| DELETE | `/api/v1/watchlist/{fund_code}` | 从自选移除基金 |
+| GET | `/api/v1/watchlist/valuation` | 获取自选基金的实时估值 |
 
 ### 基金搜索
 
@@ -469,12 +536,37 @@ CREATE TABLE asset_allocations (
 #### 数据库表结构
 
 ```sql
+-- 用户表
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT 0,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP
+);
+
+-- 自选基金表
+CREATE TABLE watchlists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    fund_code VARCHAR(20) NOT NULL,
+    fund_name VARCHAR(255) NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, fund_code)
+);
+
 -- 组合表
 CREATE TABLE portfolios (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    user_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- 持仓表
