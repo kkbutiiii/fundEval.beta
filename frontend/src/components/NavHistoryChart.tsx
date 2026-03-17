@@ -23,8 +23,8 @@ const PERIOD_OPTIONS = [
 ];
 
 const VIEW_MODE_OPTIONS = [
-  { label: '涨跌幅', value: 'change' },
-  { label: '单位净值', value: 'nav' },
+  { label: '涨跌', value: 'change' },
+  { label: '净值', value: 'nav' },
 ];
 
 // Dynamically import echarts to avoid SSR issues
@@ -98,7 +98,7 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
       option = {
         tooltip: {
           trigger: 'axis',
-          formatter: function(params: any[]) {
+          formatter: function (params: any[]) {
             const param = params[0];
             return `${param.axisValue}<br/>${param.marker} 单位净值: <strong>${param.value.toFixed(4)}元</strong>`;
           }
@@ -167,17 +167,17 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
 
       // Normalize to percentage
       const fundPct = fundData.map(n => ((n.nav / baseNav) - 1) * 100);
-      const benchmarkPct = benchmarkData.map((b: {date: string; close: number}) =>
+      const benchmarkPct = benchmarkData.map((b: { date: string; close: number }) =>
         baseBenchmark > 0 ? ((b.close / baseBenchmark) - 1) * 100 : 0
       );
-      const marketPct = marketData.map((m: {date: string; close: number}) =>
+      const marketPct = marketData.map((m: { date: string; close: number }) =>
         baseMarket > 0 ? ((m.close / baseMarket) - 1) * 100 : 0
       );
 
       option = {
         tooltip: {
           trigger: 'axis',
-          formatter: function(params: any[]) {
+          formatter: function (params: any[]) {
             let result = params[0].axisValue + '<br/>';
             params.forEach(param => {
               const color = param.value >= 0 ? '#cf1322' : '#3f8600';
