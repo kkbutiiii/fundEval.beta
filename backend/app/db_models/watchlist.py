@@ -18,8 +18,8 @@ class WatchlistDB(Base):
     fund_name = Column(String(255), nullable=False)
     added_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationship: watchlist item belongs to a user
+    user = relationship("UserDB", back_populates="watchlists")
+
     def __repr__(self):
         return f"<WatchlistDB(user_id={self.user_id}, fund_code={self.fund_code})>"
-
-
-# Relationship is set up in user.py to avoid circular imports
