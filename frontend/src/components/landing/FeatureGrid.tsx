@@ -181,11 +181,6 @@ const FeatureGrid: React.FC<FeatureGridProps> = ({
   return (
     <section className="feature-section">
       <div className="feature-container">
-        <div className="section-header">
-          <h2 className="section-title">核心功能</h2>
-          <p className="section-subtitle">为您的基金投资提供专业支持</p>
-        </div>
-
         <div className="feature-grid">
           {features.map((feature) => (
             <div

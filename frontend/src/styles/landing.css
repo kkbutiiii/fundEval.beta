@@ -238,7 +238,7 @@
 
 /* Feature Grid Section */
 .feature-section {
-  padding: 48px 24px;
+  padding: 24px 24px 48px;
   background: var(--bg-primary);
 }
 
@@ -342,7 +342,7 @@
 
 /* Preview Showcase Section */
 .preview-section {
-  padding: 48px 24px;
+  padding: 24px 24px;
   background: var(--bg-secondary);
 }
 
@@ -354,9 +354,9 @@
 .preview-item {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 48px;
+  gap: 24px;
   align-items: center;
-  margin-bottom: 48px;
+  margin-bottom: 12px;
 }
 
 .preview-item:last-child {
@@ -478,7 +478,7 @@
 
 /* Footer */
 .landing-footer {
-  padding: 48px 24px;
+  padding: 24px 24px 48px;
   background: var(--bg-secondary);
   text-align: center;
 }
