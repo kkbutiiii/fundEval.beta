@@ -13,6 +13,7 @@ import PortfolioManager from './pages/PortfolioManager';
 import Watchlist from './pages/Watchlist';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LandingPage from './pages/LandingPage';
 
 const App: React.FC = () => {
   return (
@@ -23,6 +24,7 @@ const App: React.FC = () => {
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/landing" element={<LandingPage />} />
 
             {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />

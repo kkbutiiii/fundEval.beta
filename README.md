@@ -28,6 +28,19 @@ C:\Users\11639\Documents\trae_projects\0311-FundEval.Beta
 │   └── fund_valuation.db       # 主数据库
 ├── frontend/                   # fundEval 前端 (端口 50888)
 │   ├── src/                    # React 源码
+│   │   ├── components/         # 组件目录
+│   │   │   └── landing/        # 高端首页组件 ⭐新增
+│   │   │       ├── AuthModal.tsx      # 登录/注册弹窗
+│   │   │       ├── HeroSection.tsx    # Hero主视觉区
+│   │   │       ├── FeatureGrid.tsx    # 功能卡片网格
+│   │   │       └── PreviewShowcase.tsx # 功能预览区
+│   │   ├── pages/              # 页面目录
+│   │   │   ├── LandingPage.tsx        # 高端首页 ⭐新增
+│   │   │   ├── Home.tsx               # 现有首页
+│   │   │   ├── Login.tsx              # 登录页
+│   │   │   └── Register.tsx           # 注册页
+│   │   └── styles/             # 样式目录 ⭐新增
+│   │       └── landing.css            # 高端首页样式
 │   ├── package.json            # Node.js 依赖
 │   └── vite.config.ts          # Vite 配置
 ├── estimation_service/         # 估值数据采集服务 (端口 50802)
@@ -105,7 +118,9 @@ npm run dev -- --port 50888
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 前端 | http://localhost:50888 | Vite 开发服务器 |
+| 新首页 (高端版) | http://localhost:50888/landing | 浅色科技风设计，公开访问 ⭐新增 |
+| 首页 (传统版) | http://localhost:50888/ | 现有首页，需登录 |
+| 登录页 | http://localhost:50888/login | 传统登录页面 |
 | 主后端 API | http://localhost:50801/docs | FastAPI 文档 |
 | 估值服务 API | http://localhost:50802/docs | FastAPI 文档 |
 | API 详情文档 | [front-api-details.md](./front-api-details.md) | 前端页面与 API 端口映射文档 |
@@ -147,6 +162,7 @@ npm install
 - **前端**: React + TypeScript + Vite + Ant Design + ECharts
 - **后端**: FastAPI + SQLAlchemy + SQLite
 - **功能**:
+  - 高端首页设计（浅色科技风，毛玻璃效果）⭐新增
   - 用户认证（注册/登录/JWT Token）⭐新增
   - 基金搜索、详情查看、自选列表
   - 组合管理（支持交易记录、市值曲线、收益率曲线）
@@ -154,6 +170,25 @@ npm install
   - 实时估值数据展示
 
 ### 最近更新
+
+#### 2026-03-17 高端首页设计（Landing Page）⭐新增
+
+**全新高端首页，浅色科技风格设计**:
+
+- **公开访问**: `/landing` 路径对所有用户可见，无需登录
+- **毛玻璃效果**: 使用 `backdrop-filter` 实现半透明玻璃态卡片
+- **动态背景**: 网格动画 + 渐变光晕装饰
+- **功能预览**: 集成 ECharts 图表展示功能预览（实时估值、净值走势、资产配置）
+- **登录弹窗**: 点击需登录功能时弹出 AuthModal，支持登录/注册标签切换
+- **双版本并存**:
+  - `/landing` - 新高端首页（公开访问）
+  - `/` - 现有首页（保留，需登录）
+
+**技术实现**:
+- 新建组件目录 `frontend/src/components/landing/`
+- 新建样式文件 `frontend/src/styles/landing.css`
+- 使用 CSS 变量实现主题色统一管理
+- 响应式布局，适配移动端和桌面端
 
 #### 2026-03-17 PortfolioSummaryCard 组件增强
 
