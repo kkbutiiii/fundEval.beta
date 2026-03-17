@@ -19,8 +19,11 @@ from app.utils.security import (
     create_access_token, create_refresh_token, verify_refresh_token, decode_token
 )
 from app.config import get_settings
+from app.services.user_init_service import initialize_user_data
+import logging
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 SECRET_KEY = getattr(settings, 'secret_key', 'your-secret-key-change-in-production')
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -119,6 +122,13 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # 初始化用户数据（失败后不影响注册流程）
+    try:
+        await initialize_user_data(user.id, db)
+    except Exception as e:
+        logger.warning(f"User data initialization failed for user {user.id}: {e}")
+        # 不影响注册成功
 
     return user
 
