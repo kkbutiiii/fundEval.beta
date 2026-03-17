@@ -45,7 +45,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         <p className="hero-subtitle">
           基于最新季报持仓数据，结合实时股票行情，
           <br />
-          为您提供专业、精准的基金净值估算服务
+          为您提供专业、迅捷的日内基金净值估算和持仓组合管理服务
         </p>
 
         {/* Search Box */}
@@ -60,7 +60,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Quick Stats */}
         <div className="hero-stats">
           <div className="hero-stat">
-            <div className="hero-stat-value">10000+</div>
+            <div className="hero-stat-value">20000+</div>
             <div className="hero-stat-label">支持基金</div>
           </div>
           <div className="hero-stat">
@@ -68,7 +68,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="hero-stat-label">估值更新</div>
           </div>
           <div className="hero-stat">
-            <div className="hero-stat-value">99%</div>
+            <div className="hero-stat-value">90%+</div>
             <div className="hero-stat-label">准确率</div>
           </div>
         </div>

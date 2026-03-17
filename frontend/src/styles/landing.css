@@ -62,7 +62,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 100px 24px 12px;
+  padding: 100px 24px 0px;
   background: var(--bg-hero);
   overflow: hidden;
 }
@@ -238,7 +238,7 @@
 
 /* Feature Grid Section */
 .feature-section {
-  padding: 12px 24px 48px;
+  padding: 0px 24px 48px;
   background: var(--bg-primary);
 }
 
