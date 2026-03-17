@@ -146,11 +146,17 @@ export interface NavHistoryPoint {
   nav_acc?: number;
 }
 
+export interface IndexHistoryPoint {
+  date: string;
+  close: number;
+}
+
 export interface NavHistoryData {
   fund_code: string;
   fund_nav_history: NavHistoryPoint[];
-  benchmark_history: NavHistoryPoint[];
-  market_index_history: NavHistoryPoint[];
+  benchmark_history: IndexHistoryPoint[];
+  market_index_history: IndexHistoryPoint[];
+  benchmark_name?: string;
 }
 
 // Intraday Valuation Types
