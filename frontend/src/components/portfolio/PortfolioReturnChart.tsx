@@ -343,7 +343,7 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       {stats && (
         <Space size="large" style={{ marginBottom: 16 }}>
           <Statistic
-            title="总收益"
+            title="历史总收益"
             value={stats.current}
             precision={2}
             suffix="%"
@@ -351,7 +351,7 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
             prefix={isPositive ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
           />
           <Statistic
-            title="区间收益率"
+            title="区间收益率变动"
             value={stats.change}
             precision={2}
             suffix="%"

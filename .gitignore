@@ -46,3 +46,6 @@ Thumbs.db
 *.skill
 *.zip
 nul
+.python313/
+.venv313/
+backend/.venv313/
