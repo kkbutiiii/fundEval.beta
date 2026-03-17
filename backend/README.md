@@ -44,6 +44,7 @@ backend/
 │   │   ├── fund_service.py     # 基金数据获取 (DB优先) ⭐更新
 │   │   ├── fund_data_db_service.py  # 基金数据库查询 ⭐新增
 │   │   ├── fund_data_sync_service.py # 基金数据同步 ⭐新增
+│   │   ├── user_init_service.py # 新用户数据初始化 ⭐新增
 │   │   ├── ttjj_client.py      # 天天基金 API 客户端
 │   │   ├── portfolio_service.py # 组合管理服务
 │   │   ├── stock_service.py    # 股票行情获取
@@ -109,11 +110,33 @@ docker-compose up -d backend
 
 | 方法 | 端点 | 描述 |
 |------|------|------|
-| POST | `/api/v1/auth/register` | 用户注册 |
+| POST | `/api/v1/auth/register` | 用户注册（自动初始化默认数据） |
 | POST | `/api/v1/auth/login` | 用户登录（返回 JWT Token） |
 | POST | `/api/v1/auth/logout` | 用户登出 |
 | GET | `/api/v1/auth/me` | 获取当前登录用户信息 |
 | POST | `/api/v1/auth/refresh` | 刷新访问令牌 |
+
+#### 新用户初始数据
+
+用户注册成功后，系统会自动初始化以下默认数据：
+
+**1. 自选基金（4只）:**
+| 基金代码 | 说明 |
+|---------|------|
+| 024110 | 默认自选基金 |
+| 016699 | 默认自选基金 |
+| 011949 | 默认自选基金 |
+| 005819 | 默认自选基金 |
+
+**2. 案例组合:**
+- **组合名称**: 案例组合#1
+- **基金代码**: 008888
+- **交易记录**: 16笔历史交易（包含申购/赎回）
+
+**说明:**
+- 初始化失败不会影响注册流程
+- 基金名称从 `fund_info` 表自动获取，如不存在则使用基金代码
+- 案例组合的持仓份额根据交易记录自动计算
 
 #### 认证流程
 
