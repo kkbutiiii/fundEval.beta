@@ -7,6 +7,11 @@ from sqlalchemy.orm import relationship
 
 from app.database import Base
 
+# Forward reference for type hints
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.db_models.user import UserDB
+
 
 class PortfolioDB(Base):
     """Portfolio database model."""
@@ -14,6 +19,7 @@ class PortfolioDB(Base):
 
     id = Column(String(64), primary_key=True, index=True)
     name = Column(String(255), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -25,8 +31,11 @@ class PortfolioDB(Base):
         lazy="selectin"
     )
 
+    # Relationship: portfolio belongs to a user
+    user = relationship("UserDB", back_populates="portfolios")
+
     def __repr__(self):
-        return f"<PortfolioDB(id={self.id}, name={self.name})>"
+        return f"<PortfolioDB(id={self.id}, name={self.name}, user_id={self.user_id})>"
 
 
 class PortfolioHoldingDB(Base):

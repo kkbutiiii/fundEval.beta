@@ -28,10 +28,31 @@ class ApiService {
     // Add response interceptor for error handling
     this.client.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
         console.error('API Error:', error);
+
+        // Handle 401 Unauthorized
+        if (error.response?.status === 401) {
+          // Clear auth tokens and redirect to login
+          localStorage.removeItem('auth_tokens');
+          localStorage.removeItem('auth_user');
+          window.location.href = '/login';
+        }
+
         return Promise.reject(error);
       }
+    );
+
+    // Add request interceptor to add Authorization header
+    this.client.interceptors.request.use(
+      (config) => {
+        const token = this.getAccessToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
     );
   }
 
@@ -303,6 +324,66 @@ class ApiService {
       `/portfolios/${portfolioId}/refresh-cache`
     );
     return response.data;
+  }
+
+  // =============================================================================
+  // Auth Helper Methods
+  // =============================================================================
+
+  /**
+   * Get access token from localStorage.
+   */
+  private getAccessToken(): string | null {
+    const storedTokens = localStorage.getItem('auth_tokens');
+    if (!storedTokens) return null;
+    try {
+      const tokens = JSON.parse(storedTokens);
+      return tokens.access_token;
+    } catch {
+      return null;
+    }
+  }
+
+  // =============================================================================
+  // Watchlist API Methods
+  // =============================================================================
+
+  /**
+   * Get user's watchlist.
+   */
+  async getWatchlist(): Promise<{ fund_code: string; fund_name: string; added_at: string }[]> {
+    const response = await this.client.get<{ watchlist: { fund_code: string; fund_name: string; added_at: string }[]; total: number }>('/watchlists');
+    return response.data.watchlist;
+  }
+
+  /**
+   * Add a fund to watchlist.
+   */
+  async addToWatchlist(fundCode: string, fundName: string): Promise<{ fund_code: string; fund_name: string; added_at: string }> {
+    const response = await this.client.post<{ fund_code: string; fund_name: string; added_at: string }>('/watchlists', {
+      fund_code: fundCode,
+      fund_name: fundName
+    });
+    return response.data;
+  }
+
+  /**
+   * Remove a fund from watchlist.
+   */
+  async removeFromWatchlist(fundCode: string): Promise<void> {
+    await this.client.delete(`/watchlists/${fundCode}`);
+  }
+
+  /**
+   * Check if a fund is in watchlist.
+   */
+  async checkWatchlist(fundCode: string): Promise<boolean> {
+    try {
+      await this.client.get(`/watchlists/${fundCode}`);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

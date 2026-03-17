@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
-from app.routers import funds_router, portfolios_router
+from app.routers import funds_router, portfolios_router, auth_router, watchlists_router
 from app.database import init_db, close_db
 from app.utils.fund_list_cache import fund_list_cache, start_scheduler
 from app.utils.intraday_cache import intraday_cache
@@ -129,6 +129,8 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(funds_router)
+    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(watchlists_router, prefix="/api/v1")
     app.include_router(portfolios_router, prefix="/api/v1")
 
     @app.get("/")

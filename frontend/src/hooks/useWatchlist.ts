@@ -1,11 +1,10 @@
 /**
- * Hook for managing watchlist funds with localStorage persistence and real-time updates.
+ * Hook for managing watchlist funds with backend API persistence and real-time updates.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import type { FundInfo, EstimationSummary } from '../types';
 
-const WATCHLIST_STORAGE_KEY = 'fund_watchlist_v1';
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
 export interface WatchlistFund {
@@ -24,39 +23,13 @@ export interface UseWatchlistReturn {
   watchlist: WatchlistFund[];
   watchlistWithRealtime: WatchlistFundWithRealtime[];
   isInWatchlist: (fundCode: string) => boolean;
-  addToWatchlist: (fund: FundInfo) => void;
-  removeFromWatchlist: (fundCode: string) => void;
+  addToWatchlist: (fund: FundInfo) => Promise<void>;
+  removeFromWatchlist: (fundCode: string) => Promise<void>;
   currentFundCode: string | null;
   setCurrentFundCode: (code: string) => void;
   isLoading: boolean;
   lastUpdate: Date | null;
   refresh: () => Promise<void>;
-}
-
-/**
- * Load watchlist from localStorage
- */
-function loadWatchlistFromStorage(): WatchlistFund[] {
-  try {
-    const stored = localStorage.getItem(WATCHLIST_STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (error) {
-    console.error('Failed to load watchlist from localStorage:', error);
-  }
-  return [];
-}
-
-/**
- * Save watchlist to localStorage
- */
-function saveWatchlistToStorage(watchlist: WatchlistFund[]): void {
-  try {
-    localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
-  } catch (error) {
-    console.error('Failed to save watchlist to localStorage:', error);
-  }
 }
 
 export function useWatchlist(): UseWatchlistReturn {
@@ -66,16 +39,33 @@ export function useWatchlist(): UseWatchlistReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const initialFetchDone = useRef(false);
 
-  // Load watchlist from localStorage on mount
-  useEffect(() => {
-    const stored = loadWatchlistFromStorage();
-    setWatchlist(stored);
-    // Set first fund as current if exists and no current selected
-    if (stored.length > 0 && !currentFundCode) {
-      setCurrentFundCode(stored[0].fund_code);
+  // Load watchlist from backend API on mount
+  const fetchWatchlist = useCallback(async () => {
+    try {
+      const data = await api.getWatchlist();
+      const formatted = data.map(item => ({
+        fund_code: item.fund_code,
+        fund_name: item.fund_name,
+        added_at: new Date(item.added_at).getTime()
+      }));
+      setWatchlist(formatted);
+      // Set first fund as current if exists and no current selected
+      if (formatted.length > 0 && !currentFundCode) {
+        setCurrentFundCode(formatted[0].fund_code);
+      }
+    } catch (err) {
+      console.error('Failed to fetch watchlist:', err);
     }
-  }, []);
+  }, [currentFundCode]);
+
+  useEffect(() => {
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchWatchlist();
+    }
+  }, [fetchWatchlist]);
 
   // Check if a fund is in watchlist
   const isInWatchlist = useCallback((fundCode: string): boolean => {
@@ -83,35 +73,39 @@ export function useWatchlist(): UseWatchlistReturn {
   }, [watchlist]);
 
   // Add fund to watchlist
-  const addToWatchlist = useCallback((fund: FundInfo) => {
-    setWatchlist(prev => {
-      if (prev.some(f => f.fund_code === fund.fund_code)) {
-        return prev; // Already exists
-      }
-      const newItem: WatchlistFund = {
-        fund_code: fund.fund_code,
-        fund_name: fund.fund_name,
-        added_at: Date.now(),
-      };
-      const newWatchlist = [...prev, newItem];
-      saveWatchlistToStorage(newWatchlist);
-      return newWatchlist;
-    });
-  }, []);
+  const addToWatchlist = useCallback(async (fund: FundInfo) => {
+    if (watchlist.some(f => f.fund_code === fund.fund_code)) {
+      return; // Already exists
+    }
+
+    try {
+      await api.addToWatchlist(fund.fund_code, fund.fund_name);
+      // Refresh watchlist from backend
+      await fetchWatchlist();
+    } catch (err) {
+      console.error('Failed to add to watchlist:', err);
+      throw err;
+    }
+  }, [watchlist, fetchWatchlist]);
 
   // Remove fund from watchlist
-  const removeFromWatchlist = useCallback((fundCode: string) => {
-    setWatchlist(prev => {
-      const newWatchlist = prev.filter(f => f.fund_code !== fundCode);
-      saveWatchlistToStorage(newWatchlist);
-      return newWatchlist;
-    });
-    // If current fund is removed, select another one
-    if (currentFundCode === fundCode) {
-      const remaining = watchlist.filter(f => f.fund_code !== fundCode);
-      setCurrentFundCode(remaining.length > 0 ? remaining[0].fund_code : null);
+  const removeFromWatchlist = useCallback(async (fundCode: string) => {
+    try {
+      await api.removeFromWatchlist(fundCode);
+      setWatchlist(prev => {
+        const newWatchlist = prev.filter(f => f.fund_code !== fundCode);
+        // If current fund is removed, select another one
+        if (currentFundCode === fundCode) {
+          const remaining = newWatchlist;
+          setCurrentFundCode(remaining.length > 0 ? remaining[0].fund_code : null);
+        }
+        return newWatchlist;
+      });
+    } catch (err) {
+      console.error('Failed to remove from watchlist:', err);
+      throw err;
     }
-  }, [currentFundCode, watchlist]);
+  }, [currentFundCode]);
 
   // Fetch real-time data for all watchlist funds
   const fetchRealtimeData = useCallback(async () => {

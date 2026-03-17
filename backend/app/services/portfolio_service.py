@@ -61,13 +61,16 @@ class PortfolioService:
         )
 
     @classmethod
-    async def get_all_portfolios(cls, db: AsyncSession) -> List[Portfolio]:
-        """Get all portfolios."""
-        result = await db.execute(
-            select(PortfolioDB)
-            .options(selectinload(PortfolioDB.holdings))
-            .order_by(PortfolioDB.created_at.desc())
-        )
+    async def get_all_portfolios(cls, db: AsyncSession, user_id: Optional[int] = None) -> List[Portfolio]:
+        """Get all portfolios, optionally filtered by user_id."""
+        query = select(PortfolioDB).options(selectinload(PortfolioDB.holdings))
+
+        if user_id is not None:
+            query = query.where(PortfolioDB.user_id == user_id)
+
+        query = query.order_by(PortfolioDB.created_at.desc())
+
+        result = await db.execute(query)
         portfolios = result.scalars().all()
         return [cls._db_to_model(p) for p in portfolios]
 
@@ -85,11 +88,12 @@ class PortfolioService:
         return None
 
     @classmethod
-    async def create_portfolio(cls, db: AsyncSession, data: PortfolioCreate) -> Portfolio:
+    async def create_portfolio(cls, db: AsyncSession, data: PortfolioCreate, user_id: Optional[int] = None) -> Portfolio:
         """Create a new portfolio."""
         db_portfolio = PortfolioDB(
             id=cls._generate_id(),
             name=data.name,
+            user_id=user_id,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
