@@ -82,16 +82,16 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
     // Calculate weighted growth
     const totalEstimatedGrowth = totalEstimatedValue > 0
       ? funds.reduce((sum, f) => {
-          const weight = (f.estimated_value || 0) / totalEstimatedValue;
-          return sum + (f.estimated_growth || 0) * weight;
-        }, 0)
+        const weight = (f.estimated_value || 0) / totalEstimatedValue;
+        return sum + (f.estimated_growth || 0) * weight;
+      }, 0)
       : 0;
 
     const totalLatestGrowth = totalLatestValue > 0
       ? funds.reduce((sum, f) => {
-          const weight = (f.latest_value || 0) / totalLatestValue;
-          return sum + (f.latest_growth || 0) * weight;
-        }, 0)
+        const weight = (f.latest_value || 0) / totalLatestValue;
+        return sum + (f.latest_growth || 0) * weight;
+      }, 0)
       : 0;
 
     return {
@@ -143,7 +143,7 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
 
       <Row gutter={[24, 16]}>
         {/* Historical Total Return */}
-        <Col xs={24} sm={12} md={6} lg={5}>
+        {/* <Col xs={24} sm={12} md={6} lg={5}>
           <Statistic
             title="历史总收益"
             value={historyReturn !== null ? historyReturn : 0}
@@ -155,7 +155,7 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
               </span>
             )}
           />
-        </Col>
+        </Col> */}
         {/* Estimated Total Value */}
         <Col xs={24} sm={12} md={6} lg={5}>
           <Statistic

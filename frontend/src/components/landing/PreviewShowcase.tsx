@@ -444,7 +444,7 @@ const PreviewShowcase: React.FC = () => {
       features: [
         '实时股票行情对接',
         '基于季报持仓数据计算',
-        '秒级估值更新',
+        '分钟估值更新',
         '日内走势可视化',
       ],
       chart: (

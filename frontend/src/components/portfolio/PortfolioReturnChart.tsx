@@ -48,6 +48,8 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
 
       setLoading(true);
       try {
+        // 先清除缓存，确保获取最新数据（解决问题1：缓存数据不一致）
+        await api.refreshPortfolioCache(portfolioId);
         const result = await api.getPortfolioHistory(portfolioId, period, calculationMethod);
         setData(result);
       } catch (error) {
@@ -273,8 +275,13 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
     const max = Math.max(...data.data.map((d) => d.return_rate));
     const min = Math.min(...data.data.map((d) => d.return_rate));
 
+    // 使用 lifetime_return_rate（组合构建以来的累计收益率）解决问题3
+    const lifetimeReturn = last.lifetime_return_rate !== undefined
+      ? last.lifetime_return_rate
+      : last.return_rate;
+
     return {
-      current: last.return_rate,
+      current: lifetimeReturn,  // 使用累计收益率替代区间收益率
       start: first.return_rate,
       max,
       min,
@@ -343,16 +350,16 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
     >
       {stats && (
         <Space size="large" style={{ marginBottom: 16 }}>
-          <Statistic
+          {/* <Statistic
             title="历史总收益"
             value={stats.current}
             precision={2}
             suffix="%"
             valueStyle={{ color }}
             prefix={isPositive ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-          />
+          /> */}
           <Statistic
-            title="区间收益率变动"
+            title="区间收益"
             value={stats.change}
             precision={2}
             suffix="%"
