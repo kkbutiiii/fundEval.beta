@@ -1256,6 +1256,11 @@ class PortfolioService:
                     else:
                         print(f"[Today Estimation] Could not determine nav_date, skip estimation")
 
+                # 【修复】当不应该添加今天数据时，移除已存在的今天数据（如开盘前场景或缓存中的旧估算数据）
+                if not should_add_today and today_idx is not None:
+                    print(f"[Today Estimation] Removing existing today data at index {today_idx} (should_add_today={should_add_today})")
+                    all_data.pop(today_idx)
+
                 if should_add_today and portfolio_detail and portfolio_detail.summary:
                     # 【调试】打印获取到的值
                     print(f"[DEBUG] today_idx={today_idx}, should_add_today={should_add_today}")

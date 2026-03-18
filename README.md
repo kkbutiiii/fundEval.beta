@@ -191,6 +191,15 @@ npm install
 
 ### 最近更新
 
+#### 2026-03-19 修复组合管理页面数据一致性问题
+
+**问题修复**:
+- **文件**: `frontend/src/pages/PortfolioManagerV2.tsx`, `frontend/src/components/portfolio/PortfolioSummaryCard.tsx`
+- **问题**: 刚进入页面时显示错误的3月19日数据点，切换周期/计算方式后仍显示，需点击"重新计算"才正常
+- **根本原因**: 后端 `get_portfolio_history` 在缓存命中时跳过今天数据修正逻辑，导致开盘前场景下缓存中错误地包含今天数据
+- **前端修复**: 每次获取历史数据前强制清除缓存 (`api.refreshPortfolioCache`)，确保后端重新计算
+- **构建更新**: 重新构建前端生产版本 (`npm run build`)
+
 #### 2026-03-18 修复组合今日估算数据异常处理问题
 
 **问题修复**:

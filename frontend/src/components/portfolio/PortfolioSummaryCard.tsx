@@ -1,7 +1,7 @@
 /**
  * Summary card component showing portfolio statistics.
  */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, Row, Col, Typography, Statistic, Divider, Tag } from 'antd';
 import {
   WalletOutlined,
@@ -10,7 +10,6 @@ import {
   FundOutlined,
 } from '@ant-design/icons';
 import type { PortfolioFund } from '../../types';
-import { api } from '../../services/api';
 
 const { Title, Text } = Typography;
 
@@ -25,22 +24,9 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   funds,
   portfolioName,
   lastUpdate,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   portfolioId,
 }) => {
-  // State for historical return rate
-  const [historyReturn, setHistoryReturn] = useState<number | null>(null);
-
-  // Fetch portfolio history to get return rate
-  useEffect(() => {
-    if (portfolioId) {
-      api.getPortfolioHistory(portfolioId, 'ytd', 'twr').then((data) => {
-        if (data.data?.length) {
-          setHistoryReturn(data.data[data.data.length - 1].return_rate);
-        }
-      });
-    }
-  }, [portfolioId]);
-
   // Extract dates from funds
   const dates = React.useMemo(() => {
     const navDates = funds.map((f) => f.nav_date).filter(Boolean) as string[];
@@ -117,10 +103,12 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
     return `${sign}${value.toFixed(2)}%`;
   };
 
+  /*
   const formatHistoryReturn = (value: number | null) => {
     if (value === null) return '-';
     return formatPercent(value);
   };
+  */
 
   const getGrowthColor = (value: number) => {
     // Chinese stock market convention: red = up, green = down

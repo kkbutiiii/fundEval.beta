@@ -2,7 +2,7 @@
  * Portfolio Management Page V2 - Light Tech Style
  * New design consistent with landing page
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, message, Row, Col } from 'antd';
 import { PlusOutlined, FundOutlined } from '@ant-design/icons';
 import { usePortfolios } from '../hooks/usePortfolios';
@@ -20,7 +20,7 @@ import FundDetailModal from '../components/portfolio/FundDetailModal';
 import PortfolioValueChart from '../components/portfolio/PortfolioValueChart';
 import PortfolioReturnChart from '../components/portfolio/PortfolioReturnChart';
 import { api } from '../services/api';
-import type { PortfolioFund, CreateTransactionRequest } from '../types';
+import type { PortfolioFund, CreateTransactionRequest, PortfolioHistory } from '../types';
 
 
 const PortfolioManagerV2: React.FC = () => {
@@ -56,6 +56,63 @@ const PortfolioManagerV2: React.FC = () => {
   // Fund detail modal state
   const [fundDetailModalVisible, setFundDetailModalVisible] = useState(false);
   const [selectedFundForDetail, setSelectedFundForDetail] = useState<PortfolioFund | null>(null);
+
+  // ============================================================================
+  // History Data State - Shared between PortfolioValueChart and PortfolioReturnChart
+  // ============================================================================
+  const [historyData, setHistoryData] = useState<PortfolioHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Two components share period, with PortfolioReturnChart as the source of truth
+  const [period, setPeriod] = useState('30d');
+  const [calculationMethod, setCalculationMethod] = useState<'twr' | 'holding_return'>('twr');
+
+  // Fetch history data - unified data fetching for both charts
+  const fetchHistoryData = async (
+    targetPeriod: string,
+    method: 'twr' | 'holding_return',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _options: { refresh?: boolean } = {}
+  ) => {
+    if (!currentPortfolio) return;
+
+    console.log(`[fetchHistoryData] Start fetching for portfolio ${currentPortfolio.id}, period: ${targetPeriod}, method: ${method}`);
+    setHistoryLoading(true);
+    try {
+      // 【关键修改】每次获取数据前都清除缓存，确保数据正确
+      // 这是必要的，因为后端在缓存命中时会跳过今天数据的修正逻辑
+      console.log('[fetchHistoryData] Clearing cache...');
+      await api.refreshPortfolioCache(currentPortfolio.id);
+      console.log('[fetchHistoryData] Cache cleared, fetching history...');
+
+      const result = await api.getPortfolioHistory(
+        currentPortfolio.id,
+        targetPeriod,
+        method
+      );
+      console.log(`[fetchHistoryData] Got result with ${result.data?.length} data points`);
+      console.log('[fetchHistoryData] Last data point:', result.data?.[result.data?.length - 1]);
+      setHistoryData(result);
+    } catch (error) {
+      console.error('Failed to fetch portfolio history:', error);
+      message.error('获取历史数据失败');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Fetch history data when portfolio, period, or calculation method changes
+  useEffect(() => {
+    if (currentPortfolio?.id) {
+      fetchHistoryData(period, calculationMethod);
+    }
+  }, [currentPortfolio?.id, period, calculationMethod]);
+
+  // Refresh handler - clear cache and refetch
+  const handleRefresh = async () => {
+    await fetchHistoryData(period, calculationMethod);
+    message.success('重新计算完成');
+  };
 
   // Handle portfolio creation
   const handleCreatePortfolio = async (name: string) => {
@@ -290,7 +347,14 @@ const PortfolioManagerV2: React.FC = () => {
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
                   }}
                 >
-                  <PortfolioValueChart portfolioId={currentPortfolio.id} />
+                  <PortfolioValueChart
+                    portfolioId={currentPortfolio.id}
+                    data={historyData}
+                    loading={historyLoading}
+                    period={period}
+                    onPeriodChange={setPeriod}
+                    onRefresh={handleRefresh}
+                  />
                 </div>
               </Col>
               <Col xs={24} lg={12}>
@@ -304,7 +368,16 @@ const PortfolioManagerV2: React.FC = () => {
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
                   }}
                 >
-                  <PortfolioReturnChart portfolioId={currentPortfolio.id} />
+                  <PortfolioReturnChart
+                    portfolioId={currentPortfolio.id}
+                    data={historyData}
+                    loading={historyLoading}
+                    period={period}
+                    calculationMethod={calculationMethod}
+                    onPeriodChange={setPeriod}
+                    onCalculationMethodChange={setCalculationMethod}
+                    onRefresh={handleRefresh}
+                  />
                 </div>
               </Col>
             </Row>
