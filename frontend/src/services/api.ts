@@ -33,10 +33,10 @@ class ApiService {
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401) {
-          // Clear auth tokens and redirect to login
+          // Clear auth tokens and redirect to home with login modal
           localStorage.removeItem('auth_tokens');
           localStorage.removeItem('auth_user');
-          window.location.href = '/login';
+          window.location.href = '/?auth=required';
         }
 
         return Promise.reject(error);

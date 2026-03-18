@@ -34,15 +34,28 @@ const LandingPage: React.FC = () => {
   const [passwordForm] = Form.useForm();
   const [passwordLoading, setPasswordLoading] = useState(false);
 
-  // Check if redirected from protected route
+  // Check if redirected from protected route or auth required from API
   useEffect(() => {
     const fromPath = location.state?.from?.pathname;
-    if (fromPath && !isAuthenticated) {
-      setRedirectPath(fromPath);
-      setAuthModalTab('login');
-      setAuthModalVisible(true);
-      // Clear location state after processing
-      window.history.replaceState({}, document.title);
+    const searchParams = new URLSearchParams(window.location.search);
+    const authRequired = searchParams.get('auth') === 'required';
+
+    if (!isAuthenticated) {
+      if (fromPath) {
+        // Redirected from protected route
+        setRedirectPath(fromPath);
+        setAuthModalTab('login');
+        setAuthModalVisible(true);
+        // Clear location state after processing
+        window.history.replaceState({}, document.title);
+      } else if (authRequired) {
+        // Auth required from API 401
+        setRedirectPath('/');
+        setAuthModalTab('login');
+        setAuthModalVisible(true);
+        // Clear URL param after processing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
   }, [location.state, isAuthenticated]);
 
