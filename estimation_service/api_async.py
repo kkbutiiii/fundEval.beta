@@ -9,9 +9,15 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 import os
 import sys
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from database_async import AsyncFundEstimationDB
+
+# 导入采集器和数据库（用于手动触发）
+from database import FundEstimationDB
+from collector import FundEstimationCollector
 
 app = FastAPI(
     title="基金估值API服务",
@@ -192,6 +198,75 @@ async def not_found_handler(request, exc):
     )
 
 
+# 创建线程池用于执行同步采集任务
+executor = ThreadPoolExecutor(max_workers=1)
+
+
+async def run_collector_task():
+    """在后台线程中运行采集任务"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, sync_collect_job)
+
+
+def sync_collect_job():
+    """同步执行采集任务"""
+    from datetime import datetime
+    db_path = DB_PATH.replace('\\', '/')
+    db = FundEstimationDB(db_path)
+    collector = FundEstimationCollector(db)
+
+    print(f"\n{'='*60}")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 手动触发采集任务")
+    print(f"{'='*60}")
+
+    try:
+        count = collector.collect_once(save_basic=True)
+        return {"status": "success", "collected": count}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/v1/admin/collect")
+async def manual_collect():
+    """
+    手动触发基金估值采集
+
+    该接口会立即执行一次全量基金估值采集，忽略交易时间限制
+    """
+    try:
+        # 在后台线程中执行采集任务
+        asyncio.create_task(run_collector_task())
+
+        return {
+            "status": "started",
+            "message": "采集任务已在后台启动",
+            "time": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"启动采集任务失败: {str(e)}")
+
+
+@app.get("/api/v1/admin/collect/status")
+async def get_collect_status():
+    """获取采集任务状态"""
+    # 获取今日统计
+    today = int(datetime.now().strftime('%Y%m%d'))
+    today_stats = await db.get_statistics(date=today)
+
+    return {
+        "today": {
+            "date": today,
+            "fund_count": today_stats.get('fund_count', 0),
+            "total_records": today_stats.get('total_records', 0),
+            "first_time": str(today_stats.get('first_time', '')).zfill(6) if today_stats.get('first_time') else None,
+            "last_time": str(today_stats.get('last_time', '')).zfill(6) if today_stats.get('last_time') else None
+        },
+        "server_time": datetime.now().isoformat()
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     print(f"基金估值API服务启动 (异步模式)...")
@@ -204,5 +279,7 @@ if __name__ == "__main__":
     print(f"  - 最新估值: GET /api/v1/fund/latest?limit=20")
     print(f"  - 基金列表: GET /api/v1/fund/list?limit=100")
     print(f"  - 系统统计: GET /api/v1/system/stats")
+    print(f"  - 手动采集: POST /api/v1/admin/collect")
+    print(f"  - 采集状态: GET /api/v1/admin/collect/status")
 
     uvicorn.run(app, host="0.0.0.0", port=50802)

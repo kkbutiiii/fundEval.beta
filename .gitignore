@@ -42,6 +42,14 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Cache files
+backend/cache/*.json
+
+# Debug files
+debug_*.py
+*_debug.png
+watchlist_result.png
+
 # Skill package (large)
 *.skill
 *.zip

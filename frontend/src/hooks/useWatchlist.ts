@@ -133,9 +133,13 @@ export function useWatchlist(): UseWatchlistReturn {
         const normalizedFundCode = fund.fund_code.trim().toUpperCase();
         const estimation = estimationMap.get(normalizedFundCode);
         if (estimation) {
+          // Only use estimation.name if it's different from fund_code (avoid showing code twice)
+          const estimationName = estimation.name && estimation.name !== fund.fund_code
+            ? estimation.name
+            : fund.fund_name;
           return {
             ...fund,
-            fund_name: estimation.name || fund.fund_name,
+            fund_name: estimationName,
             estimated_nav: estimation.latest_nav,
             estimated_growth: estimation.latest_growth,
             previous_nav: estimation.previous_nav,

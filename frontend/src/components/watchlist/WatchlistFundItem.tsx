@@ -102,15 +102,17 @@ const WatchlistFundItem: React.FC<WatchlistFundItemProps> = ({
         >
           {fund.fund_code}
         </span>
-        <span
-          style={{
-            fontSize: 14,
-            color: '#333',
-            fontWeight: isSelected ? 500 : 400,
-          }}
-        >
-          {fund.fund_name}
-        </span>
+        {fund.fund_name && fund.fund_name !== fund.fund_code && (
+          <span
+            style={{
+              fontSize: 14,
+              color: '#333',
+              fontWeight: isSelected ? 600 : 500,
+            }}
+          >
+            {fund.fund_name}
+          </span>
+        )}
       </div>
 
       {/* Second row: NAV data - horizontal layout */}

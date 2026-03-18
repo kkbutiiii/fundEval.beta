@@ -107,15 +107,17 @@ const CompactFundItem: React.FC<{
         <span style={{ fontSize: 11, color: '#999', marginRight: 6 }}>
           {fund.fund_code}
         </span>
-        <span
-          style={{
-            fontSize: 13,
-            color: isSelected ? '#1890ff' : '#333',
-            fontWeight: isSelected ? 500 : 400,
-          }}
-        >
-          {fund.fund_name}
-        </span>
+        {fund.fund_name && fund.fund_name !== fund.fund_code && (
+          <span
+            style={{
+              fontSize: 13,
+              color: isSelected ? '#1890ff' : '#333',
+              fontWeight: isSelected ? 500 : 400,
+            }}
+          >
+            {fund.fund_name}
+          </span>
+        )}
       </div>
 
       {/* NAV data row */}

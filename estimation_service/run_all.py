@@ -15,6 +15,7 @@ import time
 import threading
 import signal
 import argparse
+from datetime import datetime
 
 # 添加当前目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,6 +23,37 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import uvicorn
 from api_async import app, DB_PATH
 from scheduler import FundEstimationScheduler
+from database import FundEstimationDB
+from collector import FundEstimationCollector
+
+
+# 全局变量用于协调关闭
+scheduler_instance = None
+scheduler_thread = None
+shutdown_event = threading.Event()
+
+
+def run_initial_collection(db_path):
+    """
+    启动时立即执行一次采集
+    忽略交易时间限制
+    """
+    print("\n" + "=" * 60)
+    print("启动时立即采集")
+    print("=" * 60)
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 正在执行启动采集...")
+
+    try:
+        db = FundEstimationDB(db_path)
+        collector = FundEstimationCollector(db)
+        count = collector.collect_once(save_basic=True)
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 启动采集完成: {count} 条记录")
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 启动采集失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+    print("=" * 60 + "\n")
 
 
 # 全局变量用于协调关闭
@@ -136,8 +168,9 @@ def main():
     print(f"  API服务地址: http://{args.host}:{args.port}")
     print()
     print("【启动顺序】")
-    print("  1. 启动数据采集调度器（后台线程）")
-    print("  2. 启动FastAPI服务（主线程）")
+    print("  1. 启动时立即采集（后台线程）")
+    print("  2. 启动数据采集调度器（后台线程）")
+    print("  3. 启动FastAPI服务（主线程）")
     print()
     print("【停止方法】")
     print("  按 Ctrl+C 停止所有服务")
@@ -147,6 +180,16 @@ def main():
 
     # 等待一下让用户看到启动信息
     time.sleep(1)
+
+    # 启动立即采集线程（后台执行，不阻塞）
+    print("[主程序] 正在启动立即采集...")
+    initial_collection_thread = threading.Thread(
+        target=run_initial_collection,
+        args=(db_path,),
+        daemon=True,
+        name="InitialCollectionThread"
+    )
+    initial_collection_thread.start()
 
     # 启动调度器线程
     print("[主程序] 正在启动数据采集调度器...")
@@ -179,6 +222,8 @@ def main():
     print(f"  - 最新估值: GET /api/v1/fund/latest?limit=20")
     print(f"  - 基金列表: GET /api/v1/fund/list?limit=100")
     print(f"  - 系统统计: GET /api/v1/system/stats")
+    print(f"  - 手动采集: POST /api/v1/admin/collect")
+    print(f"  - 采集状态: GET /api/v1/admin/collect/status")
     print("=" * 70)
     print()
 
