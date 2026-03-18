@@ -231,6 +231,7 @@ export interface PortfolioFund {
   latest_growth?: number;      // Latest change percent (%)
   // Time fields
   estimation_time?: string;    // Estimation time (e.g., "03/11 15:30")
+  estimation_date?: string;    // Estimation date label (e.g., "03-11" or "03-10" based on time)
   nav_date?: string;           // NAV date (e.g., "03/10")
   // Calculated fields
   estimated_value?: number;    // Estimated value = shares * estimated_nav

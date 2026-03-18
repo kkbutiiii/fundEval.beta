@@ -44,10 +44,10 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
   // Extract dates from funds
   const dates = React.useMemo(() => {
     const navDates = funds.map((f) => f.nav_date).filter(Boolean) as string[];
-    const estimationTimes = funds.map((f) => f.estimation_time).filter(Boolean) as string[];
+    const estimationDates = funds.map((f) => f.estimation_date).filter(Boolean) as string[];
     return {
       navDate: navDates[0] || '',
-      estimationTime: estimationTimes[0] || '',
+      estimationDate: estimationDates[0] || '',
     };
   }, [funds]);
 
@@ -165,6 +165,11 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
                 <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px', color: '#999', borderColor: '#d9d9d9' }}>
                   估
                 </Tag>
+                {dates.estimationDate && (
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 4 }}>
+                    ({dates.estimationDate})
+                  </span>
+                )}
               </span>
             }
             value={stats.totalEstimatedValue}
@@ -203,6 +208,11 @@ const PortfolioSummaryCard: React.FC<PortfolioSummaryCardProps> = ({
                 <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px', color: '#999', borderColor: '#d9d9d9' }}>
                   估
                 </Tag>
+                {dates.estimationDate && (
+                  <span style={{ color: '#999', fontSize: 12, marginLeft: 4 }}>
+                    ({dates.estimationDate})
+                  </span>
+                )}
               </span>
             }
             value={stats.totalEstimatedGrowth}

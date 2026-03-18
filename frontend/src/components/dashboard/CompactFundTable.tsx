@@ -96,6 +96,7 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
   };
 
   const navDateLabel = funds.length > 0 ? formatNavDate(funds[0].nav_date) : '';
+  const estimationDateLabel = funds.length > 0 ? funds[0].estimation_date || '' : '';
 
   const columns = [
     {
@@ -122,7 +123,16 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
       ),
     },
     {
-      title: '估算净值',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>估算净值</div>
+          {estimationDateLabel && (
+            <div style={{ fontSize: 10, color: '#999', fontWeight: 'normal' }}>
+              {estimationDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'estimated_nav',
       key: 'estimated_nav',
       width: 90,
@@ -139,7 +149,16 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
       ),
     },
     {
-      title: '估算涨跌',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>估算涨跌</div>
+          {estimationDateLabel && (
+            <div style={{ fontSize: 10, color: '#999', fontWeight: 'normal' }}>
+              {estimationDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'estimated_growth',
       key: 'estimated_growth',
       width: 80,
@@ -207,7 +226,16 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
       ),
     },
     {
-      title: '估算市值',
+      title: () => (
+        <div style={{ textAlign: 'right' }}>
+          <div>估算市值</div>
+          {estimationDateLabel && (
+            <div style={{ fontSize: 10, color: '#999', fontWeight: 'normal' }}>
+              {estimationDateLabel}
+            </div>
+          )}
+        </div>
+      ),
       dataIndex: 'estimated_value',
       key: 'estimated_value',
       width: 120,

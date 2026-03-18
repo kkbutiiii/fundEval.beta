@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import type { FundPortfolio, PortfolioFund, EstimationSummary, FundInfo } from '../types';
+import { getEstimationDateLabel } from '../utils/dateUtils';
 
 const REFRESH_INTERVAL = 30000; // 30 seconds
 
@@ -74,6 +75,16 @@ export function usePortfolioRealtime(
           const isEstimatedFallback = estimatedNav === undefined || estimatedNav === null;
           const effectiveEstimatedNav = estimatedNav ?? latestNav;
 
+          // Calculate estimation date label based on date and last_time
+          const estimationDateLabel = estimation
+            ? getEstimationDateLabel(estimation.date, estimation.last_time)
+            : undefined;
+
+          // Format estimation time as "MM/DD HH:MM"
+          const estimationTimeStr = estimation?.last_time && estimation?.date
+            ? `${String(Math.floor((estimation.date % 10000) / 100)).padStart(2, '0')}/${String(estimation.date % 100).padStart(2, '0')} ${estimation.last_time}`
+            : undefined;
+
           return {
             ...fund,
             fund_name: fundInfo?.fund_name ?? estimation?.name ?? fund.fund_name,
@@ -83,6 +94,9 @@ export function usePortfolioRealtime(
             latest_nav: latestNav,
             latest_growth: latestGrowth,
             nav_date: fundInfo?.nav_date,
+            // Time fields with proper date calculation
+            estimation_time: estimationTimeStr,
+            estimation_date: estimationDateLabel,
             // Calculate values
             estimated_value: fund.shares * (effectiveEstimatedNav || 0),
             latest_value: fund.shares * (latestNav || 0),
