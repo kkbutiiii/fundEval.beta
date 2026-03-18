@@ -113,7 +113,7 @@ const LandingPage: React.FC = () => {
         >
           <img
             src="/1726038425446-logo.png"
-            alt="华福资管"
+            alt="FundEval.Beta"
             style={{
               height: 40,
               width: 'auto',
@@ -127,7 +127,7 @@ const LandingPage: React.FC = () => {
               color: scrolled ? '#1f1f1f' : '#1f1f1f',
             }}
           >
-            华福资管
+            FundEval.Beta
           </span>
         </div>
 

@@ -241,7 +241,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
         {/* Left side - Brand */}
         <div className="auth-modal-brand">
           <FundOutlined className="auth-modal-logo" />
-          <h3 className="auth-modal-title">华福资管</h3>
+          <h3 className="auth-modal-title">FundEval.Beta</h3>
           <p className="auth-modal-desc">
             基金实时估值平台
             <br />

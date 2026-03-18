@@ -65,9 +65,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className="dash-navbar-logo" onClick={scrollToTop}>
           <img
             src="/1726038425446-logo.png"
-            alt="华福资管"
+            alt="FundEval.Beta"
           />
-          <span className="dash-navbar-title">华福资管</span>
+          <span className="dash-navbar-title">FundEval.Beta</span>
           {title && (
             <>
               <span style={{ color: '#d9d9d9', margin: '0 8px' }}>|</span>

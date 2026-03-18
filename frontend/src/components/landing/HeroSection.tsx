@@ -36,7 +36,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
         {/* Title */}
         <h1 className="hero-title">
-          华福资管
+          FundEval.Beta
           <br />
           <span className="hero-title-highlight">基金实时估值平台</span>
         </h1>
@@ -64,8 +64,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="hero-stat-label">支持基金</div>
           </div>
           <div className="hero-stat">
-            <div className="hero-stat-value">实时</div>
-            <div className="hero-stat-label">估值更新</div>
+            <div className="hero-stat-value">2min</div>
+            <div className="hero-stat-label">估值更新频率</div>
           </div>
           <div className="hero-stat">
             <div className="hero-stat-value">90%+</div>
