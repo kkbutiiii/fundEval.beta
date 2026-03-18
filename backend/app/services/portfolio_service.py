@@ -1115,6 +1115,7 @@ class PortfolioService:
         if all_data:
             today = datetime.now().date()
             today_str = today.strftime('%Y-%m-%d')
+            yesterday = today - timedelta(days=1)
 
             # 检查是否已有今日数据（且是估算数据）
             today_data_exists = None
@@ -1125,82 +1126,122 @@ class PortfolioService:
                     today_idx = idx
                     break
 
-            # 如果今天没有数据，或者今天的数据不是估算数据，则添加/替换为估算数据
-            should_add_today = today_data_exists is None or not today_data_exists.get('is_estimated', False)
+            # 获取今日估算数据
+            try:
+                portfolio_detail = await cls.get_portfolio_with_values(db, portfolio_id)
 
-            if should_add_today:
-                # 获取今日估算数据
-                try:
-                    portfolio_detail = await cls.get_portfolio_with_values(db, portfolio_id)
-                    if portfolio_detail and portfolio_detail.summary:
-                        # 【调试】打印获取到的值
-                        print(f"[DEBUG] today_idx={today_idx}, should_add_today={should_add_today}")
-                        print(f"[DEBUG] estimated_value={portfolio_detail.summary.total_estimated_value}, latest_value={portfolio_detail.summary.total_latest_value}")
+                # 【修订1】检查基金最新净值日期，判断是否需要添加估算数据
+                # 如果所有基金的 latest_nav_date 都是昨天（或更早），则需要估算
+                # 如果有基金的 latest_nav_date 是今天，则说明估值已更新，跳过估算
+                should_add_today = False
+                if portfolio_detail and portfolio_detail.funds:
+                    all_nav_yesterday = True
+                    for fund in portfolio_detail.funds:
+                        # nav_date 格式为 "MM/DD"，需要转换为日期进行比较
+                        nav_date_str = fund.nav_date  # e.g., "03/18"
+                        if nav_date_str:
+                            try:
+                                # 将 MM/DD 格式解析为今年的日期
+                                nav_date_parsed = datetime.strptime(f"{today.year}-{nav_date_str}", "%Y-%m/%d").date()
+                                # 处理跨年的情况：如果解析的日期是未来的日期，则认为是去年的
+                                if nav_date_parsed > today:
+                                    nav_date_parsed = datetime.strptime(f"{today.year - 1}-{nav_date_str}", "%Y-%m/%d").date()
 
-                        # 如果今天已有数据，获取昨天的数据作为 last_data
-                        if today_idx is not None and today_idx > 0:
-                            last_data = all_data[today_idx - 1]
+                                if nav_date_parsed >= today:
+                                    # 有基金的净值日期是今天，说明估值已更新
+                                    all_nav_yesterday = False
+                                    print(f"[Today Estimation] Fund {fund.fund_code} nav_date is today ({nav_date_str}), skip estimation")
+                                    break
+                            except ValueError:
+                                # 日期解析失败，保守处理：假设需要估算
+                                print(f"[Today Estimation] Failed to parse nav_date {nav_date_str} for {fund.fund_code}, assuming need estimation")
+                                continue
+
+                    # 只有当所有基金的净值日期都是昨天（或更早）且今天没有官方数据时，才需要估算
+                    if all_nav_yesterday and (today_data_exists is None or today_data_exists.get('is_estimated', False)):
+                        should_add_today = True
+                        print(f"[Today Estimation] All funds nav_date are before today, need estimation")
+                    else:
+                        print(f"[Today Estimation] Skip estimation: all_nav_yesterday={all_nav_yesterday}, today_data_exists={today_data_exists is not None}")
+
+                if should_add_today and portfolio_detail and portfolio_detail.summary:
+                    # 【调试】打印获取到的值
+                    print(f"[DEBUG] today_idx={today_idx}, should_add_today={should_add_today}")
+                    print(f"[DEBUG] estimated_value={portfolio_detail.summary.total_estimated_value}, latest_value={portfolio_detail.summary.total_latest_value}")
+
+                    # 如果今天已有数据，获取昨天的数据作为 last_data
+                    if today_idx is not None and today_idx > 0:
+                        last_data = all_data[today_idx - 1]
+                    else:
+                        last_data = all_data[-1]
+
+                    estimated_value = portfolio_detail.summary.total_estimated_value
+                    latest_value = portfolio_detail.summary.total_latest_value
+                    total_cost = last_data['total_cost']
+
+                    print(f"[DEBUG] last_data date={last_data['date']}, total_cost={total_cost}")
+
+                    # 计算当日盈亏
+                    daily_profit = estimated_value - latest_value
+
+                    print(f"[DEBUG] daily_profit={daily_profit} (estimated_value={estimated_value} - latest_value={latest_value})")
+
+                    # 计算收益率（使用与历史数据相同的方法）
+                    simple_return = ((estimated_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
+
+                    # 【修订2】TWR收益率计算：基于昨天TWR和今日收益率
+                    # today_return = (estimated_value - latest_value) / latest_value
+                    today_return = ((estimated_value - latest_value) / latest_value) if latest_value > 0 else 0
+                    last_twr = last_data.get('twr', 0)
+                    # TWR = ((1 + last_twr/100) * (1 + today_return) - 1) * 100
+                    twr = ((1 + last_twr / 100) * (1 + today_return) - 1) * 100
+
+                    # 计算累计收益率（使用与历史数据相同的基准）
+                    # 找到第一笔交易日期对应的基准市值
+                    last_lifetime_return = last_data.get('lifetime_return_rate')
+                    if last_lifetime_return is not None:
+                        # 基于历史数据的累计收益率计算今日估算的累计收益率
+                        # 使用估算市值相对于最后历史市值的变化比例
+                        last_value = last_data['total_value']
+                        if last_value > 0:
+                            value_change_pct = (estimated_value - last_value) / last_value
+                            # 累计收益率 = 历史累计收益率 + 估算变化比例 * (1 + 历史累计收益率/100)
+                            lifetime_return = last_lifetime_return + value_change_pct * 100
                         else:
-                            last_data = all_data[-1]
+                            lifetime_return = last_lifetime_return
+                    else:
+                        lifetime_return = simple_return
 
-                        estimated_value = portfolio_detail.summary.total_estimated_value
-                        latest_value = portfolio_detail.summary.total_latest_value
-                        total_cost = last_data['total_cost']
+                    today_data = {
+                        'date': today_str,
+                        'total_value': round(estimated_value, 2),
+                        'total_cost': round(total_cost, 2),
+                        'total_profit': round(estimated_value - total_cost, 2),
+                        'daily_profit': round(daily_profit, 2),
+                        'return_rate': round(simple_return, 4),
+                        'twr': round(twr, 4),  # 【修订2】使用基于昨日TWR计算的TWR
+                        'xirr': None,
+                        'is_estimated': True,
+                        'actual_nav_date': None,
+                        'lifetime_return_rate': round(lifetime_return, 4),
+                        'fund_shares': last_data.get('fund_shares', 0),
+                        'fund_nav': last_data.get('fund_nav', 1.0),
+                    }
 
-                        print(f"[DEBUG] last_data date={last_data['date']}, total_cost={total_cost}")
-
-                        # 计算当日盈亏
-                        daily_profit = estimated_value - latest_value
-
-                        print(f"[DEBUG] daily_profit={daily_profit} (estimated_value={estimated_value} - latest_value={latest_value})")
-
-                        # 计算收益率（使用与历史数据相同的方法）
-                        simple_return = ((estimated_value - total_cost) / total_cost * 100) if total_cost > 0 else 0.0
-
-                        # 计算累计收益率（使用与历史数据相同的基准）
-                        # 找到第一笔交易日期对应的基准市值
-                        last_lifetime_return = last_data.get('lifetime_return_rate')
-                        if last_lifetime_return is not None:
-                            # 基于历史数据的累计收益率计算今日估算的累计收益率
-                            # 使用估算市值相对于最后历史市值的变化比例
-                            last_value = last_data['total_value']
-                            if last_value > 0:
-                                value_change_pct = (estimated_value - last_value) / last_value
-                                # 累计收益率 = 历史累计收益率 + 估算变化比例 * (1 + 历史累计收益率/100)
-                                lifetime_return = last_lifetime_return + value_change_pct * 100
-                            else:
-                                lifetime_return = last_lifetime_return
-                        else:
-                            lifetime_return = simple_return
-
-                        today_data = {
-                            'date': today_str,
-                            'total_value': round(estimated_value, 2),
-                            'total_cost': round(total_cost, 2),
-                            'total_profit': round(estimated_value - total_cost, 2),
-                            'daily_profit': round(daily_profit, 2),
-                            'return_rate': round(simple_return, 4),
-                            'twr': round(simple_return, 4),  # 估算数据使用简单收益率作为TWR近似
-                            'xirr': None,
-                            'is_estimated': True,
-                            'actual_nav_date': None,
-                            'lifetime_return_rate': round(lifetime_return, 4),
-                            'fund_shares': last_data.get('fund_shares', 0),
-                            'fund_nav': last_data.get('fund_nav', 1.0),
-                        }
-
-                        # 如果今天已有数据，替换它；否则追加
-                        print(f"[DEBUG] today_idx={today_idx}, all_data length before={len(all_data)}")
-                        if today_idx is not None and 0 <= today_idx < len(all_data):
-                            print(f"[DEBUG] Replacing data at index {today_idx}, current date={all_data[today_idx]['date']}")
-                            all_data[today_idx] = today_data
-                            print(f"[Today Estimation] Replaced today ({today_str}) data with estimation: value={estimated_value}, profit={daily_profit}")
-                        else:
-                            all_data.append(today_data)
-                            print(f"[Today Estimation] Added today ({today_str}) estimated data: value={estimated_value}, profit={daily_profit}")
-                        print(f"[DEBUG] all_data length after={len(all_data)}, last item date={all_data[-1]['date']}, daily_profit={all_data[-1].get('daily_profit')}")
-                except Exception as e:
-                    print(f"[Today Estimation] Failed to add today estimation: {e}")
+                    # 如果今天已有数据，替换它；否则追加
+                    print(f"[DEBUG] today_idx={today_idx}, all_data length before={len(all_data)}")
+                    if today_idx is not None and 0 <= today_idx < len(all_data):
+                        print(f"[DEBUG] Replacing data at index {today_idx}, current date={all_data[today_idx]['date']}")
+                        all_data[today_idx] = today_data
+                        print(f"[Today Estimation] Replaced today ({today_str}) data with estimation: value={estimated_value}, profit={daily_profit}, twr={twr:.4f}")
+                    else:
+                        all_data.append(today_data)
+                        print(f"[Today Estimation] Added today ({today_str}) estimated data: value={estimated_value}, profit={daily_profit}, twr={twr:.4f}")
+                    print(f"[DEBUG] all_data length after={len(all_data)}, last item date={all_data[-1]['date']}, daily_profit={all_data[-1].get('daily_profit')}")
+            except Exception as e:
+                print(f"[Today Estimation] Failed to add today estimation: {e}")
+                import traceback
+                traceback.print_exc()
 
         # Sort by date and return
         return {
