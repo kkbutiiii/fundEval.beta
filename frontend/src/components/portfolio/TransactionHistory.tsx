@@ -82,7 +82,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
     }).format(value);
   };
 
-  const formatNumber = (value: number, digits: number = 4) => {
+  const formatNumber = (value: number, digits: number = 2) => {
     return value.toFixed(digits);
   };
 
@@ -124,7 +124,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
       key: 'shares',
       width: 120,
       align: 'right' as const,
-      render: (value: number) => formatNumber(value, 4),
+      render: (value: number) => formatNumber(value, 2),
     },
     {
       title: '金额',
@@ -190,7 +190,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
               <Text type="secondary">当前份额</Text>
               <div>
                 <Text strong style={{ fontSize: 18 }}>
-                  {formatNumber(summary.current_shares, 4)}
+                  {formatNumber(summary.current_shares, 2)}
                 </Text>
               </div>
             </div>

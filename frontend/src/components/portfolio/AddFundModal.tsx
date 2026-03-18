@@ -60,10 +60,41 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
     }
   };
 
-  const handleFundSelect = (fundCode: string) => {
+  const handleFundSelect = async (fundCode: string) => {
     const fund = searchResults.find(f => f.fund_code === fundCode);
     setSelectedFund(fund || null);
-    if (fund?.nav) {
+
+    // Get the currently selected date from the form
+    const currentDate = form.getFieldValue('transaction_date') as dayjs.Dayjs;
+
+    if (currentDate && fund) {
+      // If date is already selected, fetch NAV for that date
+      setNavLoading(true);
+      setDateWarning(null);
+      try {
+        const navHistory = await api.getNavHistory(fund.fund_code, '3m');
+        if (navHistory?.fund_nav_history?.length > 0) {
+          const selectedDateStr = currentDate.format('YYYY-MM-DD');
+          const navForDate = navHistory.fund_nav_history.find(
+            item => item.date === selectedDateStr
+          );
+
+          if (navForDate?.nav) {
+            form.setFieldsValue({ nav: navForDate.nav });
+          } else {
+            const warningMsg = `${selectedDateStr} 可能不是交易日，未找到净值数据。请手动输入净值或选择其他日期。`;
+            setDateWarning(warningMsg);
+            // Clear NAV field since no data found for this date
+            form.setFieldsValue({ nav: undefined });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch NAV history:', error);
+      } finally {
+        setNavLoading(false);
+      }
+    } else if (fund?.nav) {
+      // If no date selected yet, use the latest NAV
       form.setFieldsValue({ nav: fund.nav });
     }
   };
@@ -80,12 +111,12 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
       // Get NAV history for the last 3 months to cover the selected date
       const navHistory = await api.getNavHistory(selectedFund.fund_code, '3m');
 
-      if (navHistory?.history?.length > 0) {
+      if (navHistory?.fund_nav_history?.length > 0) {
         // Format the selected date to match NAV history format (YYYY-MM-DD)
         const selectedDateStr = date.format('YYYY-MM-DD');
 
         // Find the NAV for the selected date
-        const navForDate = navHistory.history.find(
+        const navForDate = navHistory.fund_nav_history.find(
           item => item.date === selectedDateStr
         );
 
@@ -216,7 +247,7 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
           name="transaction_date"
           label="确认日期"
           rules={[{ required: true, message: '请选择确认日期' }]}
-          initialValue={dayjs()}
+          initialValue={dayjs().subtract(1, 'day')}
         >
           <DatePicker
             style={{ width: '100%' }}

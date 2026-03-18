@@ -7,13 +7,15 @@ import {
   Form,
   DatePicker,
   InputNumber,
-  Radio,
   Space,
   Typography,
   Divider,
+  Alert,
   message,
+  Spin,
 } from 'antd';
 import dayjs from 'dayjs';
+import { api } from '../../services/api';
 import type { PortfolioFund, CreateTransactionRequest } from '../../types';
 
 interface TransactionModalProps {
@@ -35,6 +37,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [calculating, setCalculating] = useState<'shares' | 'amount' | null>(null);
+  const [navLoading, setNavLoading] = useState(false);
+  const [dateWarning, setDateWarning] = useState<string | null>(null);
 
   const isBuy = type === 'buy';
   const title = isBuy ? '买入基金' : '卖出基金';
@@ -45,11 +49,49 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       // Reset form with default values
       form.resetFields();
       form.setFieldsValue({
-        transaction_date: dayjs(),
+        transaction_date: dayjs().subtract(1, 'day'),
         nav: fund.latest_nav || fund.estimated_nav || undefined,
       });
+      setDateWarning(null);
     }
   }, [visible, fund, form]);
+
+  const handleDateChange = async (date: dayjs.Dayjs | null) => {
+    if (!date || !fund) return;
+
+    // Clear previous warning
+    setDateWarning(null);
+
+    // Fetch historical NAV for the selected date
+    setNavLoading(true);
+    try {
+      // Get NAV history for the last 3 months to cover the selected date
+      const navHistory = await api.getNavHistory(fund.fund_code, '3m');
+
+      if (navHistory?.fund_nav_history?.length > 0) {
+        // Format the selected date to match NAV history format (YYYY-MM-DD)
+        const selectedDateStr = date.format('YYYY-MM-DD');
+
+        // Find the NAV for the selected date
+        const navForDate = navHistory.fund_nav_history.find(
+          item => item.date === selectedDateStr
+        );
+
+        if (navForDate?.nav) {
+          form.setFieldsValue({ nav: navForDate.nav });
+        } else {
+          // If no NAV found for exact date, show a warning message
+          const warningMsg = `${selectedDateStr} 可能不是交易日，未找到净值数据。请手动输入净值或选择其他日期。`;
+          setDateWarning(warningMsg);
+          console.log(`No NAV data found for ${selectedDateStr}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch NAV history:', error);
+    } finally {
+      setNavLoading(false);
+    }
+  };
 
   const handleValuesChange = (changedValues: any, allValues: any) => {
     const { nav, shares, amount } = allValues;
@@ -90,6 +132,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleCancel = () => {
     form.resetFields();
+    setDateWarning(null);
     onCancel();
   };
 
@@ -126,8 +169,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             style={{ width: '100%' }}
             format="YYYY-MM-DD"
             allowClear={false}
+            onChange={handleDateChange}
+            disabled={navLoading}
           />
         </Form.Item>
+
+        {dateWarning && (
+          <Alert
+            message={dateWarning}
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setDateWarning(null)}
+          />
+        )}
 
         <Form.Item
           name="nav"
@@ -142,6 +198,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             precision={4}
             step={0.0001}
             placeholder="请输入确认净值"
+            disabled={navLoading}
           />
         </Form.Item>
 

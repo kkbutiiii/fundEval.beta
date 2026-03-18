@@ -2,6 +2,31 @@
 
 ## 2026-03-19
 
+### UI优化：份额显示精度统一与添加基金交互改进
+
+#### 修改内容
+
+1. **份额显示精度统一为2位小数**
+   - `PortfolioFundTable.tsx`: 当前份额列从4位改为2位小数
+   - `FundDetailDrawer.tsx`: 当前份额显示从4位改为2位小数
+   - `TransactionHistory.tsx`: 份额列和当前份额汇总从4位改为2位小数
+   - 确认净值保持4位小数不变（净值需要更高精度）
+
+2. **交易弹窗交互优化（添加基金/买入/卖出）**
+   - 默认确认日期从"今天"改为"昨天"（基金交易T+1确认）
+   - 选择日期时自动填充该日期的净值
+   - 如果所选日期没有净值数据（非交易日），显示警告提示
+   - 添加基金弹窗：选择基金时也会根据已选日期自动填充净值
+
+#### 相关文件
+
+- `frontend/src/components/portfolio/PortfolioFundTable.tsx`
+- `frontend/src/components/portfolio/FundDetailDrawer.tsx`
+- `frontend/src/components/portfolio/TransactionHistory.tsx`
+- `frontend/src/components/portfolio/AddFundModal.tsx`
+
+---
+
 ### 组合管理页面 - 收益率走势图最后一天计算逻辑修订（第2版）
 
 #### 修改内容

@@ -62,7 +62,7 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
     }).format(value);
   };
 
-  const formatNumber = (value: number | undefined, digits: number = 4) => {
+  const formatNumber = (value: number | undefined, digits: number = 2) => {
     if (value === undefined || isNaN(value)) return '-';
     return value.toFixed(digits);
   };
@@ -202,7 +202,7 @@ const PortfolioFundTable: React.FC<PortfolioFundTableProps> = ({
       width: 120,
       align: 'right' as const,
       render: (value: number) => (
-        <Text>{formatNumber(value, 4)}</Text>
+        <Text>{formatNumber(value, 2)}</Text>
       ),
     },
     {

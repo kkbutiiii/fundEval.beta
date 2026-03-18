@@ -54,7 +54,7 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
     }).format(value);
   };
 
-  const formatNumber = (value: number | undefined, digits: number = 4) => {
+  const formatNumber = (value: number | undefined, digits: number = 2) => {
     if (value === undefined || isNaN(value)) return '-';
     return value.toFixed(digits);
   };
@@ -98,7 +98,7 @@ export const FundDetailDrawer: React.FC<FundDetailDrawerProps> = ({
       {/* Current Position Summary */}
       <Descriptions column={2} size="small" bordered>
         <Descriptions.Item label="当前份额">
-          <Text strong>{formatNumber(fund.shares, 4)}</Text>
+          <Text strong>{formatNumber(fund.shares, 2)}</Text>
         </Descriptions.Item>
         <Descriptions.Item label="估算市值">
           <Text strong>{formatCurrency(fund.estimated_value)}</Text>
