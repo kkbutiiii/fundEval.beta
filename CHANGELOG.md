@@ -24,6 +24,31 @@
 - `frontend/src/components/portfolio/FundDetailDrawer.tsx`
 - `frontend/src/components/portfolio/TransactionHistory.tsx`
 - `frontend/src/components/portfolio/AddFundModal.tsx`
+- `frontend/src/components/portfolio/TransactionModal.tsx`
+
+---
+
+### 前端图表组件重构：改为受控组件模式
+
+#### 修改内容
+
+1. **PortfolioValueChart 组件重构**
+   - 从自管理数据改为受控组件模式
+   - 通过 props 接收 `data`, `loading`, `period`, `onPeriodChange`, `onRefresh`
+   - 数据获取逻辑上移至父组件，便于统一管理和缓存
+
+2. **PortfolioReturnChart 组件重构**
+   - 从自管理数据改为受控组件模式
+   - 通过 props 接收 `data`, `loading`, `period`, `calculationMethod`, `onPeriodChange`, `onCalculationMethodChange`, `onRefresh`
+   - 移除内部状态管理，统一由父组件控制
+
+3. **布局优化**
+   - 调整图表 grid 布局，右侧边距从 12% 改为 3%，保持左右对称
+
+#### 相关文件
+
+- `frontend/src/components/portfolio/PortfolioValueChart.tsx`
+- `frontend/src/components/portfolio/PortfolioReturnChart.tsx`
 
 ---
 

@@ -1,17 +1,24 @@
 /**
  * Portfolio Return Chart Component
  * Displays historical return rate trends with daily profit bars
+ * (Controlled Component - data passed via props)
  */
 import React, { useEffect, useState } from 'react';
 import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider, Tooltip, Button, message } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { PortfolioHistory } from '../../types';
-import { api } from '../../services/api';
 
 const { Text } = Typography;
 
 interface PortfolioReturnChartProps {
   portfolioId: string;
+  data: PortfolioHistory | null;
+  loading: boolean;
+  period: string;
+  calculationMethod: 'twr' | 'holding_return';
+  onPeriodChange: (period: string) => void;
+  onCalculationMethodChange: (method: 'twr' | 'holding_return') => void;
+  onRefresh: () => Promise<void>;
 }
 
 const PERIOD_OPTIONS = [
@@ -21,11 +28,15 @@ const PERIOD_OPTIONS = [
   { label: '今年以来', value: 'ytd' },
 ];
 
-export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ portfolioId }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<PortfolioHistory | null>(null);
-  const [period, setPeriod] = useState('30d');
-  const [calculationMethod, setCalculationMethod] = useState<'twr' | 'holding_return'>('twr');
+export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({
+  data,
+  loading,
+  period,
+  calculationMethod,
+  onPeriodChange,
+  onCalculationMethodChange,
+  onRefresh,
+}) => {
   const [echartsReady, setEchartsReady] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
@@ -41,26 +52,6 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       });
     }
   }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!portfolioId) return;
-
-      setLoading(true);
-      try {
-        // 先清除缓存，确保获取最新数据（解决问题1：缓存数据不一致）
-        await api.refreshPortfolioCache(portfolioId);
-        const result = await api.getPortfolioHistory(portfolioId, period, calculationMethod);
-        setData(result);
-      } catch (error) {
-        console.error('Failed to fetch portfolio history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [portfolioId, period, calculationMethod]);
 
   useEffect(() => {
     if (!data?.data?.length || !chartRef.current || !echartsReady || !echartsModule.current) {
@@ -115,7 +106,7 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
       },
       grid: {
         left: '3%',
-        right: '12%',  // Make room for right y-axis
+        right: '3%',   // 与左侧保持一致，containLabel 会自动处理标签空间
         bottom: '15%',
         top: '10%',
         containLabel: true,
@@ -238,26 +229,17 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
   }, [data, echartsReady]);
 
   const handlePeriodChange = (e: any) => {
-    setPeriod(e.target.value);
+    onPeriodChange(e.target.value);
   };
 
   const handleCalculationMethodChange = (e: any) => {
-    setCalculationMethod(e.target.value);
+    onCalculationMethodChange(e.target.value);
   };
 
   const handleRecalculate = async () => {
-    if (!portfolioId) return;
-
     setRecalculating(true);
     try {
-      // 调用API清除缓存
-      await api.refreshPortfolioCache(portfolioId);
-      message.success('缓存已清除，正在重新计算...');
-
-      // 重新获取数据
-      const result = await api.getPortfolioHistory(portfolioId, period, calculationMethod);
-      setData(result);
-      message.success('重新计算完成');
+      await onRefresh();
     } catch (error) {
       console.error('Failed to recalculate:', error);
       message.error('重新计算失败');

@@ -1,17 +1,22 @@
 /**
  * Portfolio Value Chart Component
  * Displays historical total value trends with total profit line
+ * (Controlled Component - data passed via props)
  */
 import React, { useEffect, useState } from 'react';
 import { Card, Spin, Empty, Typography, Radio, Space, Statistic, Divider } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { PortfolioHistory } from '../../types';
-import { api } from '../../services/api';
 
 const { Text } = Typography;
 
 interface PortfolioValueChartProps {
   portfolioId: string;
+  data: PortfolioHistory | null;
+  loading: boolean;
+  period: string;
+  onPeriodChange: (period: string) => void;
+  onRefresh: () => Promise<void>;
 }
 
 const PERIOD_OPTIONS = [
@@ -21,10 +26,12 @@ const PERIOD_OPTIONS = [
   { label: '今年以来', value: 'ytd' },
 ];
 
-export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfolioId }) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<PortfolioHistory | null>(null);
-  const [period, setPeriod] = useState('30d');
+export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({
+  data,
+  loading,
+  period,
+  onPeriodChange,
+}) => {
   const [echartsReady, setEchartsReady] = useState(false);
   const chartRef = React.useRef<HTMLDivElement>(null);
   const chartInstance = React.useRef<any>(null);
@@ -39,24 +46,6 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
       });
     }
   }, []);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!portfolioId) return;
-
-      setLoading(true);
-      try {
-        const result = await api.getPortfolioHistory(portfolioId, period);
-        setData(result);
-      } catch (error) {
-        console.error('Failed to fetch portfolio history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [portfolioId, period]);
 
   useEffect(() => {
     if (!data?.data?.length || !chartRef.current || !echartsReady || !echartsModule.current) {
@@ -109,7 +98,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
       },
       grid: {
         left: '3%',
-        right: '12%',  // Make room for right y-axis
+        right: '3%',   // 与左侧保持一致，containLabel 会自动处理标签空间
         bottom: '15%',
         top: '10%',
         containLabel: true,
@@ -227,7 +216,7 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
   }, [data, echartsReady]);
 
   const handlePeriodChange = (e: any) => {
-    setPeriod(e.target.value);
+    onPeriodChange(e.target.value);
   };
 
   // Calculate statistics

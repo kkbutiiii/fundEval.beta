@@ -65,8 +65,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     // Fetch historical NAV for the selected date
     setNavLoading(true);
     try {
-      // Get NAV history for the last 3 months to cover the selected date
-      const navHistory = await api.getNavHistory(fund.fund_code, '3m');
+      // Get NAV history for the last 1 year to cover the selected date
+      const navHistory = await api.getNavHistory(fund.fund_code, '1y');
 
       if (navHistory?.fund_nav_history?.length > 0) {
         // Format the selected date to match NAV history format (YYYY-MM-DD)

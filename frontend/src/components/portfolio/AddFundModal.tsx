@@ -72,7 +72,7 @@ const AddFundModal: React.FC<AddFundModalProps> = ({
       setNavLoading(true);
       setDateWarning(null);
       try {
-        const navHistory = await api.getNavHistory(fund.fund_code, '3m');
+        const navHistory = await api.getNavHistory(fund.fund_code, '1y');
         if (navHistory?.fund_nav_history?.length > 0) {
           const selectedDateStr = currentDate.format('YYYY-MM-DD');
           const navForDate = navHistory.fund_nav_history.find(
