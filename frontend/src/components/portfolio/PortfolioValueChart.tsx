@@ -283,7 +283,8 @@ export const PortfolioValueChart: React.FC<PortfolioValueChartProps> = ({ portfo
   return (
     <Card
       title="总资产走势"
-      style={{ height: '100%' }}
+      style={{ height: '100%', background: 'transparent' }}
+      bordered={false}
       extra={
         <Radio.Group value={period} onChange={handlePeriodChange} size="small">
           {PERIOD_OPTIONS.map((opt) => (

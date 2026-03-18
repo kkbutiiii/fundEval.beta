@@ -311,7 +311,8 @@ export const PortfolioReturnChart: React.FC<PortfolioReturnChartProps> = ({ port
   return (
     <Card
       title="收益率走势"
-      style={{ height: '100%' }}
+      style={{ height: '100%', background: 'transparent' }}
+      bordered={false}
       extra={
         <Space>
           {/* 重新计算按钮 */}

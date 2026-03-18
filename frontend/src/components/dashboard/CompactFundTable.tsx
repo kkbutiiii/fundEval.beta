@@ -2,7 +2,7 @@
  * Compact Fund Table Component
  * Reduced row height and padding for financial monitoring
  */
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   Button,
@@ -12,6 +12,7 @@ import {
   Typography,
   Empty,
   Tooltip,
+  ConfigProvider,
 } from 'antd';
 import {
   DeleteOutlined,
@@ -52,6 +53,7 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
   onSell,
 }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
 
   const formatCurrency = (value: number | undefined) => {
     if (value === undefined || isNaN(value)) return '-';
@@ -313,6 +315,13 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
     setSelectedRowKeys([]);
   };
 
+  const handleTableChange = (newPagination: any) => {
+    setPagination({
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    });
+  };
+
   return (
     <div className="dash-table-compact">
       {/* Toolbar */}
@@ -376,22 +385,31 @@ const CompactFundTable: React.FC<CompactFundTableProps> = ({
           style={{ marginTop: 48 }}
         />
       ) : (
-        <Table
-          rowKey="fund_code"
-          rowSelection={rowSelection}
-          columns={columns}
-          dataSource={funds}
-          loading={loading}
-          scroll={{ x: 1100 }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 只基金`,
-            size: 'small',
-          }}
-          size="small"
-          rowClassName={() => 'compact-row'}
-        />
+        <ConfigProvider
+          getPopupContainer={(triggerNode) => triggerNode?.parentElement || document.body}
+        >
+          <Table
+            rowKey="fund_code"
+            rowSelection={rowSelection}
+            columns={columns}
+            dataSource={funds}
+            loading={loading}
+            scroll={{ x: 1100 }}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 只基金`,
+              size: 'small',
+              onShowSizeChange: (current, size) => {
+                setPagination({ current, pageSize: size });
+              },
+            }}
+            onChange={handleTableChange}
+            size="small"
+            rowClassName={() => 'compact-row'}
+          />
+        </ConfigProvider>
       )}
 
       <style>{`

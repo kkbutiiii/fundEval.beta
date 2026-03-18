@@ -197,6 +197,25 @@ npm install
 
 ### 最近更新
 
+#### 2026-03-18 V2 页面 Bug 修复
+
+**修复自选监控和组合管理页面的交互问题**:
+
+- **图表卡片样式修复**: V2 页面图表组件移除内部边框，融入外层毛玻璃容器
+  - `PortfolioValueChart.tsx` - 总资产走势 Card
+  - `PortfolioReturnChart.tsx` - 收益率走势 Card
+  - `IntradayValuationChart.tsx` - 实时估值 Card
+  - `NavHistoryChart.tsx` - 历史净值走势 Card
+  - 统一添加 `bordered={false}` 和 `background: 'transparent'`
+
+- **自选监控页面优化**: `WatchlistV2.tsx`
+  - 移除基金详情卡片的固定高度限制
+  - 卡片高度改为自适应内容，消除双滚动条问题
+
+- **组合管理分页修复**: `CompactFundTable.tsx`
+  - 修复分页下拉菜单被遮挡问题（使用 `ConfigProvider` 设置 `getPopupContainer`）
+  - 修复切换分页条数无响应问题（添加受控分页状态 `pagination`）
+
 #### 2026-03-18 前端页面美化统一计划 ⭐重要更新
 
 **统一 Dashboard 浅色科技风格，提升用户体验**:

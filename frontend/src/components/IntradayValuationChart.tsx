@@ -500,7 +500,7 @@ export const IntradayValuationChart: React.FC<IntradayValuationChartProps> = ({ 
   // Non-trading day message
   if (marketState.status === 'non_trading_day' && !data?.valuation_history?.length) {
     return (
-      <Card title={cardTitle} style={{ height: '100%' }}>
+      <Card title={cardTitle} style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <Empty
           description={
             <span>
@@ -516,7 +516,7 @@ export const IntradayValuationChart: React.FC<IntradayValuationChartProps> = ({ 
 
   if (loading && !data) {
     return (
-      <Card title={cardTitle} style={{ height: '100%' }}>
+      <Card title={cardTitle} style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
@@ -529,7 +529,7 @@ export const IntradayValuationChart: React.FC<IntradayValuationChartProps> = ({ 
 
   if (error) {
     return (
-      <Card title={cardTitle} style={{ height: '100%' }}>
+      <Card title={cardTitle} style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <Empty description={error} />
       </Card>
     );
@@ -537,7 +537,7 @@ export const IntradayValuationChart: React.FC<IntradayValuationChartProps> = ({ 
 
   if (!data?.valuation_history?.length) {
     return (
-      <Card title={cardTitle} style={{ height: '100%' }}>
+      <Card title={cardTitle} style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <Empty description="暂无日内估值数据（需要交易日持续采集）" />
       </Card>
     );
@@ -548,7 +548,7 @@ export const IntradayValuationChart: React.FC<IntradayValuationChartProps> = ({ 
   const icon = isPositive ? <ArrowUpOutlined /> : <ArrowDownOutlined />;
 
   return (
-    <Card title={cardTitle} style={{ height: '100%' }}>
+    <Card title={cardTitle} style={{ height: '100%', background: 'transparent' }} bordered={false}>
       {/* Large Number Display - Estimated NAV and Change Percent */}
       <Row gutter={24} justify="center" style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} style={{ textAlign: 'center' }}>

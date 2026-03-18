@@ -290,7 +290,7 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
 
   if (loading) {
     return (
-      <Card title="历史净值走势" style={{ height: '100%' }} extra={renderExtra()}>
+      <Card title="历史净值走势" style={{ height: '100%', background: 'transparent' }} bordered={false} extra={renderExtra()}>
         <div style={{ textAlign: 'center', padding: 40 }}>
           <Spin size="large" />
           <div style={{ marginTop: 16 }}>
@@ -303,7 +303,7 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
 
   if (error) {
     return (
-      <Card title="历史净值走势" style={{ height: '100%' }}>
+      <Card title="历史净值走势" style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <Empty description={error} />
       </Card>
     );
@@ -311,7 +311,7 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
 
   if (!data?.fund_nav_history?.length) {
     return (
-      <Card title="历史净值走势" style={{ height: '100%' }}>
+      <Card title="历史净值走势" style={{ height: '100%', background: 'transparent' }} bordered={false}>
         <Empty description="暂无净值历史数据" />
       </Card>
     );
@@ -320,7 +320,8 @@ export const NavHistoryChart: React.FC<NavHistoryChartProps> = ({ fundCode }) =>
   return (
     <Card
       title="历史净值走势"
-      style={{ height: '100%' }}
+      style={{ height: '100%', background: 'transparent' }}
+      bordered={false}
       extra={renderExtra()}
     >
       <div ref={chartRef} style={{ width: '100%', height: 320 }} />

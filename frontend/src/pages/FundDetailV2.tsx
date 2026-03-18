@@ -375,7 +375,7 @@ const FundDetailV2: React.FC = () => {
         {/* Disclaimer */}
         <Alert
           message="免责声明"
-          description="本系统提供的基金估值数据来源于天天基金网官方实时估算，仅供参考，不代表实际净值。基金实际净值以基金公司每日公布为准。由于市场波动和基金经理可能进行的调仓操作，估算值与实际净值可能存在偏差。投资有风险，入市需谨慎。"
+          description="本页面提供的基金估值仅供参考，不代表实际净值。基金实际净值以基金公司每日公布为准。由于市场波动和基金经理可能进行的调仓操作，估算值与实际净值可能存在偏差。"
           type="warning"
           showIcon
           icon={<InfoCircleOutlined />}

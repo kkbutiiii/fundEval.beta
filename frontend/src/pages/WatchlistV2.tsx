@@ -269,9 +269,9 @@ const WatchlistV2: React.FC = () => {
       sidebarWidth={320}
       showBackButton={true}
     >
-      <div className="dash-fade-in" style={{ height: 'calc(100vh - 140px)' }}>
+      <div className="dash-fade-in">
         {currentFundCode ? (
-          <GlassCard style={{ height: '100%', overflow: 'auto' }} hoverable={false}>
+          <GlassCard hoverable={false}>
             <EmbeddedFundDetail
               fundCode={currentFundCode}
               isInWatchlist={isInWatchlist(currentFundCode)}
