@@ -172,6 +172,69 @@
   background: rgba(24, 144, 255, 0.15);
 }
 
+/* Navbar Right Section */
+.dash-navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Navbar Navigation */
+.dash-navbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dash-navbar-nav-item {
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: var(--dash-text-secondary);
+  font-size: 16px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--dash-transition-fast);
+}
+
+.dash-navbar-nav-item:hover {
+  background: rgba(24, 144, 255, 0.08);
+  color: var(--dash-primary);
+}
+
+.dash-navbar-nav-item.active {
+  color: var(--dash-primary);
+  font-weight: 700;
+}
+
+/* Navbar Search */
+.dash-navbar-search {
+  width: 480px;
+  max-width: 100%;
+}
+
+.dash-navbar-search .ant-input-affix-wrapper {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all var(--dash-transition-fast);
+}
+
+.dash-navbar-search .ant-input-affix-wrapper:hover,
+.dash-navbar-search .ant-input-affix-wrapper-focused {
+  background: rgba(255, 255, 255, 1);
+  border-color: var(--dash-primary-light);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+.dash-navbar.scrolled .dash-navbar-search .ant-input-affix-wrapper {
+  background: rgba(245, 247, 250, 0.9);
+}
+
+.dash-navbar.scrolled .dash-navbar-search .ant-input-affix-wrapper:hover,
+.dash-navbar.scrolled .dash-navbar-search .ant-input-affix-wrapper-focused {
+  background: rgba(255, 255, 255, 1);
+}
+
 /* Compact Table Styles */
 .dash-table-compact .ant-table {
   background: transparent;
@@ -324,5 +387,44 @@
 
   .dash-sidebar.open {
     left: 0;
+  }
+
+  /* Mobile navbar adjustments */
+  .dash-navbar {
+    padding: 0 12px;
+    height: 56px;
+  }
+
+  .dash-navbar-right {
+    gap: 8px;
+  }
+
+  .dash-navbar-nav {
+    gap: 4px;
+  }
+
+  .dash-navbar-logo {
+    gap: 8px;
+  }
+
+  .dash-navbar-nav-item {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+
+  .dash-navbar-search {
+    width: 200px;
+  }
+
+  .dash-navbar-search .ant-input-affix-wrapper {
+    padding: 4px 11px;
+  }
+
+  .dash-navbar-search .ant-input {
+    font-size: 13px;
+  }
+
+  .dash-navbar-title {
+    display: none;
   }
 }
