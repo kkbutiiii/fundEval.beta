@@ -28,6 +28,30 @@
 
 ---
 
+### 修复：延长净值历史查询时间范围
+
+#### 修改内容
+
+1. **AddFundModal.tsx**
+   - 两处查询范围从 `'3m'` 改为 `'1y'`
+   - 支持查询1年内的历史净值数据
+
+2. **TransactionModal.tsx**
+   - 查询范围从 `'3m'` 改为 `'1y'`
+   - 支持买入/卖出时选择更久远的交易日期
+
+#### 问题修复
+
+- 解决选择6个月前的日期时提示"不是交易日"的问题
+- 原因为3个月缓存无法覆盖用户的早期交易记录
+
+#### 相关文件
+
+- `frontend/src/components/portfolio/AddFundModal.tsx`
+- `frontend/src/components/portfolio/TransactionModal.tsx`
+
+---
+
 ### 前端图表组件重构：改为受控组件模式
 
 #### 修改内容
