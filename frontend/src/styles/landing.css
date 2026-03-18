@@ -437,69 +437,6 @@
   box-shadow: var(--glass-shadow);
 }
 
-/* Stats Section */
-.stats-section {
-  padding: 60px 24px;
-  background: var(--bg-primary);
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.stats-container {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 32px;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-number {
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--primary-color);
-  line-height: 1;
-}
-
-.stat-suffix {
-  font-size: 24px;
-  color: var(--primary-light);
-}
-
-.stat-label {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
-/* Footer */
-.landing-footer {
-  padding: 24px 24px 48px;
-  background: var(--bg-secondary);
-  text-align: center;
-}
-
-.footer-content {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-}
-
-.footer-logo {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-}
-
-.footer-text {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
 /* Auth Modal Styles */
 .auth-modal .ant-modal-content {
   border-radius: 20px;
@@ -644,10 +581,6 @@
 
   .auth-modal-brand {
     display: none;
-  }
-
-  .stats-container {
-    flex-direction: column;
   }
 }
 

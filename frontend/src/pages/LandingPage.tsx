@@ -223,56 +223,6 @@ const LandingPage: React.FC = () => {
       {/* Preview Showcase */}
       <PreviewShowcase />
 
-      {/* Stats Section */}
-      <section className="stats-section">
-        <div className="stats-container">
-          <div className="stat-item">
-            <div className="stat-number">
-              10000<span className="stat-suffix">+</span>
-            </div>
-            <div className="stat-label">支持基金数量</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-number">
-              99<span className="stat-suffix">%</span>
-            </div>
-            <div className="stat-label">估值准确率</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-number">
-              3<span className="stat-suffix">秒</span>
-            </div>
-            <div className="stat-label">数据更新频率</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-number">
-              24<span className="stat-suffix">/7</span>
-            </div>
-            <div className="stat-label">全天候服务</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="landing-footer">
-        <div className="footer-content">
-          <div className="footer-logo">华福资管</div>
-          <p className="footer-text">
-            基金实时估值平台 · 基于最新季报持仓数据，实时估算基金净值
-            <br />
-            © 2024 华福证券资产管理部
-          </p>
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 24 }}>
-            <Button type="link" onClick={() => navigate('/register')}>
-              用户注册
-            </Button>
-            <Button type="link" onClick={() => window.open('https://www.hfzq.com.cn', '_blank')}>
-              华福证券官网
-            </Button>
-          </div>
-        </div>
-      </footer>
-
       {/* Back to Top Button */}
       <FloatButton
         icon={<ArrowUpOutlined />}
