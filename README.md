@@ -37,9 +37,26 @@ C:\Users\11639\Documents\trae_projects\0311-FundEval.Beta
 │   │   ├── pages/              # 页面目录
 │   │   │   ├── LandingPage.tsx        # 首页（公开访问，内置登录弹窗）
 │   │   │   ├── FundDetail.tsx         # 基金详情页（需登录）
+│   │   │   ├── FundDetailV2.tsx       # 新版基金详情页（浅色科技风）⭐新增
 │   │   │   ├── PortfolioManager.tsx   # 组合管理页（需登录）
+│   │   │   ├── PortfolioManagerV2.tsx # 新版组合管理页（浅色科技风）⭐新增
 │   │   │   ├── Watchlist.tsx          # 自选列表页（需登录）
+│   │   │   ├── WatchlistV2.tsx        # 新版自选监控页（浅色科技风）⭐新增
 │   │   │   └── Register.tsx           # 注册页
+│   │   ├── components/         # 组件目录
+│   │   │   ├── landing/        # 高端首页组件
+│   │   │   │   ├── AuthModal.tsx      # 登录/注册弹窗
+│   │   │   │   ├── HeroSection.tsx    # Hero主视觉区
+│   │   │   │   ├── FeatureGrid.tsx    # 功能卡片网格
+│   │   │   │   └── PreviewShowcase.tsx # 功能预览区
+│   │   │   └── dashboard/      # 统一仪表盘组件 ⭐新增
+│   │   │       ├── DashboardLayout.tsx   # 统一布局组件
+│   │   │       ├── DashboardSidebar.tsx  # 新式侧边栏
+│   │   │       ├── GlassCard.tsx         # 毛玻璃卡片
+│   │   │       └── CompactFundTable.tsx  # 紧凑基金表格
+│   │   └── styles/             # 样式目录
+│   │       ├── landing.css            # 高端首页样式
+│   │       └── unified-dashboard.css  # 统一仪表盘样式 ⭐新增
 │   │   ├── pages/archive/      # 归档页面（备份）
 │   │   │   ├── Home.tsx.bak           # 原首页（已归档）
 │   │   │   └── Login.tsx.bak          # 原登录页（已归档）
@@ -124,6 +141,12 @@ npm run dev -- --port 50888
 |------|------|------|
 | 首页 (LandingPage) | http://localhost:50888/ | 浅色科技风设计，公开访问，内置登录弹窗 |
 | 注册页 | http://localhost:50888/register | 用户注册页面 |
+| 基金详情 | http://localhost:50888/fund/:code | 基金详情页（需登录） |
+| 组合管理 | http://localhost:50888/portfolio | 基金组合管理（需登录） |
+| 自选监控 | http://localhost:50888/watchlist | 自选基金监控（需登录） |
+| 基金详情 V2 | http://localhost:50888/fund-v2/:code | 新版基金详情页（浅色科技风） |
+| 组合管理 V2 | http://localhost:50888/portfolio-v2 | 新版组合管理页（浅色科技风） |
+| 自选监控 V2 | http://localhost:50888/watchlist-v2 | 新版自选监控页（浅色科技风） |
 | 主后端 API | http://localhost:50801/docs | FastAPI 文档 |
 | 估值服务 API | http://localhost:50802/docs | FastAPI 文档 |
 | API 详情文档 | [front-api-details.md](./front-api-details.md) | 前端页面与 API 端口映射文档 |
@@ -173,6 +196,41 @@ npm install
   - 实时估值数据展示
 
 ### 最近更新
+
+#### 2026-03-18 前端页面美化统一计划 ⭐重要更新
+
+**统一 Dashboard 浅色科技风格，提升用户体验**:
+
+- **新增 V2 观察页面**（保留原页面，新旧共存）:
+  - `/portfolio-v2` - 新版组合管理页
+  - `/fund-v2/:code` - 新版基金详情页
+  - `/watchlist-v2` - 新版自选监控页
+
+- **统一设计系统**:
+  - 毛玻璃效果卡片（`backdrop-filter: blur(10px)`）
+  - 渐变主色：`linear-gradient(135deg, #1890ff 0%, #36cfc9 100%)`
+  - 浅色背景：`linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)`
+  - 统一导航栏：Logo + 华福资管 + 用户下拉菜单
+
+- **新式侧边栏**:
+  - 毛玻璃背景替代深蓝灰色（`#304156`）
+  - 选中状态：渐变左侧指示条 + 淡蓝背景
+  - Hover 效果：轻微上浮 + 阴影增强
+
+- **紧凑布局优化**（金融监控场景）:
+  - 表格行高减小到 40px
+  - 卡片 padding 16px
+  - 字体大小 12-14px
+  - 一屏显示更多基金信息
+
+- **新增组件**:
+  - `DashboardLayout` - 统一布局组件
+  - `DashboardSidebar` - 新式侧边栏
+  - `GlassCard` - 毛玻璃卡片
+  - `CompactFundTable` - 紧凑基金表格
+
+- **样式文件**:
+  - `unified-dashboard.css` - 统一 CSS 变量和组件样式
 
 #### 2026-03-18 删除页面底部组件
 
