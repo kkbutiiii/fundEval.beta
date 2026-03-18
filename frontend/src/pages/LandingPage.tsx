@@ -4,13 +4,13 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Button, Typography, FloatButton } from 'antd';
+import { Button, Typography, FloatButton, Dropdown, Modal, Form, Input, message } from 'antd';
 import {
-  FundOutlined,
   LoginOutlined,
   UserOutlined,
-  HomeOutlined,
   ArrowUpOutlined,
+  LogoutOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import HeroSection from '../components/landing/HeroSection';
@@ -25,11 +25,14 @@ const { Text } = Typography;
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout, changePassword } = useAuth();
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [passwordForm] = Form.useForm();
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // Check if redirected from protected route
   useEffect(() => {
@@ -108,21 +111,15 @@ const LandingPage: React.FC = () => {
           }}
           onClick={scrollToTop}
         >
-          <div
+          <img
+            src="/1726038425446-logo.png"
+            alt="华福资管"
             style={{
-              width: 40,
               height: 40,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #1890ff 0%, #36cfc9 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 20,
+              width: 'auto',
+              borderRadius: 8,
             }}
-          >
-            <FundOutlined />
-          </div>
+          />
           <span
             style={{
               fontSize: 20,
@@ -136,14 +133,32 @@ const LandingPage: React.FC = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {isAuthenticated ? (
-            <>
-              <Button
-                type="text"
-                icon={<HomeOutlined />}
-                onClick={() => navigate('/')}
-              >
-                进入系统
-              </Button>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'user',
+                    label: user?.username,
+                    disabled: true,
+                    icon: <UserOutlined />,
+                  },
+                  { type: 'divider' as const },
+                  {
+                    key: 'changePassword',
+                    label: '修改密码',
+                    icon: <LockOutlined />,
+                    onClick: () => setPasswordModalVisible(true),
+                  },
+                  {
+                    key: 'logout',
+                    label: '退出登录',
+                    icon: <LogoutOutlined />,
+                    onClick: logout,
+                  },
+                ],
+              }}
+              placement="bottomRight"
+            >
               <div
                 style={{
                   display: 'flex',
@@ -152,6 +167,7 @@ const LandingPage: React.FC = () => {
                   padding: '4px 12px',
                   background: 'rgba(24, 144, 255, 0.1)',
                   borderRadius: 20,
+                  cursor: 'pointer',
                 }}
               >
                 <UserOutlined style={{ color: '#1890ff' }} />
@@ -159,7 +175,7 @@ const LandingPage: React.FC = () => {
                   {user?.username}
                 </Text>
               </div>
-            </>
+            </Dropdown>
           ) : (
             <>
               <Button
@@ -275,6 +291,74 @@ const LandingPage: React.FC = () => {
         defaultTab={authModalTab}
         onSuccess={handleAuthSuccess}
       />
+
+      {/* Change Password Modal */}
+      <Modal
+        title="修改密码"
+        open={passwordModalVisible}
+        onOk={() => passwordForm.submit()}
+        onCancel={() => {
+          setPasswordModalVisible(false);
+          passwordForm.resetFields();
+        }}
+        confirmLoading={passwordLoading}
+        okText="确认修改"
+        cancelText="取消"
+      >
+        <Form
+          form={passwordForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            setPasswordLoading(true);
+            try {
+              await changePassword(values.currentPassword, values.newPassword);
+              message.success('密码修改成功');
+              setPasswordModalVisible(false);
+              passwordForm.resetFields();
+            } catch (error) {
+              message.error(error instanceof Error ? error.message : '密码修改失败');
+            } finally {
+              setPasswordLoading(false);
+            }
+          }}
+        >
+          <Form.Item
+            label="当前密码"
+            name="currentPassword"
+            rules={[{ required: true, message: '请输入当前密码' }]}
+          >
+            <Input.Password placeholder="请输入当前密码" />
+          </Form.Item>
+          <Form.Item
+            label="新密码"
+            name="newPassword"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              { min: 6, message: '新密码长度至少为6位' },
+            ]}
+          >
+            <Input.Password placeholder="请输入新密码（至少6位）" />
+          </Form.Item>
+          <Form.Item
+            label="确认新密码"
+            name="confirmPassword"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: '请确认新密码' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('newPassword') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('两次输入的密码不一致'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="请再次输入新密码" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
