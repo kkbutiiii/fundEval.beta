@@ -1,8 +1,8 @@
 """
 Portfolio service for CRUD operations.
 """
-from datetime import datetime, timedelta
-from typing import List, Optional
+from datetime import datetime, timedelta, date
+from typing import List, Optional, Tuple
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,6 +26,48 @@ from app.db_models.fund_data import FundInfoDB
 from app.services.fund_data_db_service import fund_data_db_service
 from sqlalchemy import select as sa_select
 import asyncio
+
+
+def get_estimation_date_label(date_num: int, time_str: str) -> Optional[date]:
+    """
+    根据估值时间判断应该显示的估值日期
+    规则（与前端保持一致）：
+    - 时间 < 09:30 → 昨天
+    - 时间 >= 09:30 → 今天
+
+    Args:
+        date_num: 日期数字 (YYYYMMDD格式)
+        time_str: 时间字符串 (HH:MM格式)
+
+    Returns:
+        计算后的日期对象，或None如果输入无效
+    """
+    if not date_num:
+        return None
+
+    # Parse date_num (YYYYMMDD format)
+    year = date_num // 10000
+    month = (date_num % 10000) // 100
+    day = date_num % 100
+
+    try:
+        estimation_date = date(year, month, day)
+    except ValueError:
+        return None
+
+    # If time is before 09:30, it's yesterday's data
+    if time_str:
+        try:
+            parts = time_str.split(':')
+            if len(parts) >= 2:
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                if hours < 9 or (hours == 9 and minutes < 30):
+                    estimation_date = estimation_date - timedelta(days=1)
+        except (ValueError, IndexError):
+            pass  # 时间解析失败，保持原日期
+
+    return estimation_date
 
 
 class PortfolioService:
@@ -484,12 +526,40 @@ class PortfolioService:
             if total_latest_value > 0 else 0.0
         )
 
+        # Extract estimation metadata from the first fund with estimation data
+        estimation_raw_date = None
+        estimation_time = None
+        estimation_date = None
+        if funds_with_values:
+            for fund in funds_with_values:
+                if fund.estimation_time:
+                    # Parse estimation_time (format: "MM/DD HH:MM") to get raw date and time
+                    try:
+                        parts = fund.estimation_time.split(' ')
+                        if len(parts) == 2:
+                            date_part = parts[0]  # "MM/DD"
+                            time_part = parts[1]  # "HH:MM"
+                            month, day = map(int, date_part.split('/'))
+                            today = datetime.now().date()
+                            estimation_raw_date = today.year * 10000 + month * 100 + day
+                            estimation_time = time_part
+                            # Calculate estimation_date using the helper function
+                            est_date = get_estimation_date_label(estimation_raw_date, estimation_time)
+                            if est_date:
+                                estimation_date = est_date.strftime('%Y-%m-%d')
+                            break
+                    except (ValueError, IndexError):
+                        pass
+
         summary = PortfolioSummary(
             total_estimated_value=total_estimated_value,
             total_latest_value=total_latest_value,
             total_estimated_growth=total_estimated_growth,
             total_latest_growth=total_latest_growth,
-            fund_count=len(funds_with_values)
+            fund_count=len(funds_with_values),
+            estimation_date=estimation_date,
+            estimation_raw_date=estimation_raw_date,
+            estimation_time=estimation_time
         )
 
         return PortfolioDetail(
@@ -1130,39 +1200,61 @@ class PortfolioService:
             try:
                 portfolio_detail = await cls.get_portfolio_with_values(db, portfolio_id)
 
-                # 【修订1】检查基金最新净值日期，判断是否需要添加估算数据
-                # 如果所有基金的 latest_nav_date 都是昨天（或更早），则需要估算
-                # 如果有基金的 latest_nav_date 是今天，则说明估值已更新，跳过估算
+                # 【修订1 V2】检查基金最新净值日期和估值日期，判断是否需要添加估算数据
+                # 新逻辑：
+                # - nav_date 是昨天 且 estimation_date 是今天 → 添加估算（盘中，净值未更新）
+                # - nav_date 是今天 → 跳过估算（官方净值已更新）
+                # - nav_date 是昨天 且 estimation_date 也是昨天 → 跳过估算（开盘前，属于昨天数据）
                 should_add_today = False
                 if portfolio_detail and portfolio_detail.funds:
-                    all_nav_yesterday = True
-                    for fund in portfolio_detail.funds:
-                        # nav_date 格式为 "MM/DD"，需要转换为日期进行比较
-                        nav_date_str = fund.nav_date  # e.g., "03/18"
-                        if nav_date_str:
-                            try:
-                                # 将 MM/DD 格式解析为今年的日期
-                                nav_date_parsed = datetime.strptime(f"{today.year}-{nav_date_str}", "%Y-%m/%d").date()
-                                # 处理跨年的情况：如果解析的日期是未来的日期，则认为是去年的
-                                if nav_date_parsed > today:
-                                    nav_date_parsed = datetime.strptime(f"{today.year - 1}-{nav_date_str}", "%Y-%m/%d").date()
+                    # 获取第一个基金的估值信息（假设同一组合内基金的估值时间一致）
+                    first_fund = portfolio_detail.funds[0]
+                    nav_date_str = first_fund.nav_date  # e.g., "03/18"
 
-                                if nav_date_parsed >= today:
-                                    # 有基金的净值日期是今天，说明估值已更新
-                                    all_nav_yesterday = False
-                                    print(f"[Today Estimation] Fund {fund.fund_code} nav_date is today ({nav_date_str}), skip estimation")
-                                    break
-                            except ValueError:
-                                # 日期解析失败，保守处理：假设需要估算
-                                print(f"[Today Estimation] Failed to parse nav_date {nav_date_str} for {fund.fund_code}, assuming need estimation")
-                                continue
+                    # 解析 nav_date
+                    nav_date_parsed = None
+                    if nav_date_str:
+                        try:
+                            nav_date_parsed = datetime.strptime(f"{today.year}-{nav_date_str}", "%Y-%m/%d").date()
+                            # 处理跨年的情况：如果解析的日期是未来的日期，则认为是去年的
+                            if nav_date_parsed > today:
+                                nav_date_parsed = datetime.strptime(f"{today.year - 1}-{nav_date_str}", "%Y-%m/%d").date()
+                        except ValueError:
+                            print(f"[Today Estimation] Failed to parse nav_date {nav_date_str}, assuming no estimation needed")
 
-                    # 只有当所有基金的净值日期都是昨天（或更早）且今天没有官方数据时，才需要估算
-                    if all_nav_yesterday and (today_data_exists is None or today_data_exists.get('is_estimated', False)):
-                        should_add_today = True
-                        print(f"[Today Estimation] All funds nav_date are before today, need estimation")
+                    # 从 summary 获取 estimation_date（已根据时间 >=09:30 或 <09:30 计算好）
+                    estimation_date_str = portfolio_detail.summary.estimation_date  # YYYY-MM-DD format
+                    estimation_date_parsed = None
+                    if estimation_date_str:
+                        try:
+                            estimation_date_parsed = datetime.strptime(estimation_date_str, "%Y-%m-%d").date()
+                        except ValueError:
+                            pass
+
+                    print(f"[Today Estimation] nav_date={nav_date_str} (parsed={nav_date_parsed}), estimation_date={estimation_date_str}")
+
+                    # 判断逻辑
+                    if nav_date_parsed:
+                        if nav_date_parsed >= today:
+                            # nav_date 是今天，说明官方净值已更新，跳过估算
+                            should_add_today = False
+                            print(f"[Today Estimation] nav_date is today ({nav_date_str}), official NAV updated, skip estimation")
+                        elif nav_date_parsed == yesterday:
+                            # nav_date 是昨天，需要进一步判断 estimation_date
+                            if estimation_date_parsed == today:
+                                # estimation_date 是今天 → 盘中实时数据，添加估算
+                                should_add_today = True
+                                print(f"[Today Estimation] nav_date=yesterday ({nav_date_str}), estimation_date=today, add estimation")
+                            else:
+                                # estimation_date 不是今天（开盘前或昨天数据）→ 跳过估算
+                                should_add_today = False
+                                print(f"[Today Estimation] nav_date=yesterday ({nav_date_str}), estimation_date={estimation_date_parsed} (not today), skip estimation")
+                        else:
+                            # nav_date 更早，跳过估算
+                            should_add_today = False
+                            print(f"[Today Estimation] nav_date ({nav_date_str}) is before yesterday, skip estimation")
                     else:
-                        print(f"[Today Estimation] Skip estimation: all_nav_yesterday={all_nav_yesterday}, today_data_exists={today_data_exists is not None}")
+                        print(f"[Today Estimation] Could not determine nav_date, skip estimation")
 
                 if should_add_today and portfolio_detail and portfolio_detail.summary:
                     # 【调试】打印获取到的值

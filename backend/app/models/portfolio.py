@@ -77,6 +77,10 @@ class PortfolioSummary(BaseModel):
     total_estimated_growth: float = Field(..., description="Total estimated growth (weighted average %)")
     total_latest_growth: float = Field(..., description="Total latest growth (weighted average %)")
     fund_count: int = Field(..., description="Number of funds")
+    # Estimation metadata for determining if today should be added
+    estimation_date: Optional[str] = Field(None, description="Calculated estimation date based on estimation time (YYYY-MM-DD format)")
+    estimation_raw_date: Optional[int] = Field(None, description="Raw estimation date from service (YYYYMMDD format)")
+    estimation_time: Optional[str] = Field(None, description="Estimation time (HH:MM format)")
 
 
 class PortfolioDetail(PortfolioWithValues):
