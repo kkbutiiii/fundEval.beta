@@ -170,7 +170,22 @@ const FeatureGrid: React.FC<FeatureGridProps> = ({
   const handleCardClick = (feature: Feature) => {
     if (feature.key === 'search') {
       // Search is available without login
-      document.querySelector('.hero-search-wrapper')?.scrollIntoView({ behavior: 'smooth' });
+      const searchWrapper = document.querySelector('.hero-search-wrapper');
+      if (searchWrapper) {
+        // Scroll to top of the page to ensure search box is visible
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        // Add highlight animation after scroll starts
+        setTimeout(() => {
+          searchWrapper.classList.add('highlight');
+          // Remove highlight class after animation completes (2 seconds for 2 flashes)
+          setTimeout(() => {
+            searchWrapper.classList.remove('highlight');
+          }, 2000);
+        }, 600); // Wait for scroll to complete
+      }
     } else if (isAuthenticated) {
       navigate(feature.path);
     } else {

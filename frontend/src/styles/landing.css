@@ -673,3 +673,24 @@
 .feature-card:hover .mini-chart-bar:nth-child(odd) {
   opacity: 0.6;
 }
+
+/* Search box highlight animation */
+@keyframes searchFlash {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+    border-color: var(--primary-color);
+  }
+  25%, 75% {
+    box-shadow: 0 0 0 8px rgba(24, 144, 255, 0.2);
+    border-color: var(--primary-color);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.1);
+    border-color: var(--primary-light);
+  }
+}
+
+.hero-search-wrapper.highlight .ant-input-affix-wrapper {
+  animation: searchFlash 1s ease-in-out 2;
+  border-color: var(--primary-color);
+}
