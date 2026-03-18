@@ -3,7 +3,7 @@
  * Parallel with existing Home.tsx, accessible at /landing
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button, Typography, FloatButton } from 'antd';
 import {
   FundOutlined,
@@ -24,11 +24,24 @@ const { Text } = Typography;
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
   const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+
+  // Check if redirected from protected route
+  useEffect(() => {
+    const fromPath = location.state?.from?.pathname;
+    if (fromPath && !isAuthenticated) {
+      setRedirectPath(fromPath);
+      setAuthModalTab('login');
+      setAuthModalVisible(true);
+      // Clear location state after processing
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, isAuthenticated]);
 
   // Handle scroll for navbar styling
   useEffect(() => {
@@ -234,11 +247,11 @@ const LandingPage: React.FC = () => {
             © 2024 华福证券资产管理部
           </p>
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 24 }}>
-            <Button type="link" onClick={() => navigate('/')}>
-              现有版本首页
+            <Button type="link" onClick={() => navigate('/register')}>
+              用户注册
             </Button>
-            <Button type="link" onClick={() => navigate('/login')}>
-              传统登录页面
+            <Button type="link" onClick={() => window.open('https://www.hfzq.com.cn', '_blank')}>
+              华福证券官网
             </Button>
           </div>
         </div>

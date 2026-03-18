@@ -62,7 +62,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 100px 24px 0px;
+  padding: 80px 24px 24px;
   background: var(--bg-hero);
   overflow: hidden;
 }

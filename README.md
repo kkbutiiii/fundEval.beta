@@ -35,10 +35,14 @@ C:\Users\11639\Documents\trae_projects\0311-FundEval.Beta
 │   │   │       ├── FeatureGrid.tsx    # 功能卡片网格
 │   │   │       └── PreviewShowcase.tsx # 功能预览区
 │   │   ├── pages/              # 页面目录
-│   │   │   ├── LandingPage.tsx        # 高端首页 ⭐新增
-│   │   │   ├── Home.tsx               # 现有首页
-│   │   │   ├── Login.tsx              # 登录页
+│   │   │   ├── LandingPage.tsx        # 首页（公开访问，内置登录弹窗）
+│   │   │   ├── FundDetail.tsx         # 基金详情页（需登录）
+│   │   │   ├── PortfolioManager.tsx   # 组合管理页（需登录）
+│   │   │   ├── Watchlist.tsx          # 自选列表页（需登录）
 │   │   │   └── Register.tsx           # 注册页
+│   │   ├── pages/archive/      # 归档页面（备份）
+│   │   │   ├── Home.tsx.bak           # 原首页（已归档）
+│   │   │   └── Login.tsx.bak          # 原登录页（已归档）
 │   │   └── styles/             # 样式目录 ⭐新增
 │   │       └── landing.css            # 高端首页样式
 │   ├── package.json            # Node.js 依赖
@@ -118,9 +122,8 @@ npm run dev -- --port 50888
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| 新首页 (高端版) | http://localhost:50888/landing | 浅色科技风设计，公开访问 ⭐新增 |
-| 首页 (传统版) | http://localhost:50888/ | 现有首页，需登录 |
-| 登录页 | http://localhost:50888/login | 传统登录页面 |
+| 首页 (LandingPage) | http://localhost:50888/ | 浅色科技风设计，公开访问，内置登录弹窗 |
+| 注册页 | http://localhost:50888/register | 用户注册页面 |
 | 主后端 API | http://localhost:50801/docs | FastAPI 文档 |
 | 估值服务 API | http://localhost:50802/docs | FastAPI 文档 |
 | API 详情文档 | [front-api-details.md](./front-api-details.md) | 前端页面与 API 端口映射文档 |
@@ -162,8 +165,8 @@ npm install
 - **前端**: React + TypeScript + Vite + Ant Design + ECharts
 - **后端**: FastAPI + SQLAlchemy + SQLite
 - **功能**:
-  - 高端首页设计（浅色科技风，毛玻璃效果）⭐新增
-  - 用户认证（注册/登录/JWT Token）⭐新增
+  - LandingPage 首页（浅色科技风，毛玻璃效果，公开访问）
+  - 用户认证（注册/登录/JWT Token，弹窗式登录）
   - 基金搜索、详情查看、自选列表
   - 组合管理（支持交易记录、市值曲线、收益率曲线）
   - 净值日期显示
@@ -171,22 +174,30 @@ npm install
 
 ### 最近更新
 
-#### 2026-03-17 高端首页设计（Landing Page）⭐新增
+#### 2026-03-18 LandingPage 正式成为首页 ⭐重要更新
+
+**LandingPage 已替换原有的 Home 首页和 Login 登录页**:
+
+- **首页地址**: `/` 现在显示 LandingPage（公开访问，无需登录）
+- **登录方式**: 通过顶部导航栏的"登录"按钮或点击需登录功能时弹出 AuthModal
+- **移除路由**: `/login` 和 `/landing` 路由已移除
+- **受保护路由**: `/fund/:fundCode`、`/portfolio`、`/watchlist` 仍需登录
+- **自动跳转**: 未登录访问受保护路由时，自动重定向到首页并弹出登录框
+- **归档文件**: 原 `Home.tsx` 和 `Login.tsx` 已归档为 `.bak` 文件
+
+#### 2026-03-17 高端首页设计（Landing Page）
 
 **全新高端首页，浅色科技风格设计**:
 
-- **公开访问**: `/landing` 路径对所有用户可见，无需登录
+- **公开访问**: 路径对所有用户可见，无需登录
 - **毛玻璃效果**: 使用 `backdrop-filter` 实现半透明玻璃态卡片
 - **动态背景**: 网格动画 + 渐变光晕装饰
 - **功能预览**: 集成 ECharts 图表展示功能预览（实时估值、净值走势、资产配置）
 - **登录弹窗**: 点击需登录功能时弹出 AuthModal，支持登录/注册标签切换
-- **双版本并存**:
-  - `/landing` - 新高端首页（公开访问）
-  - `/` - 现有首页（保留，需登录）
 
 **技术实现**:
-- 新建组件目录 `frontend/src/components/landing/`
-- 新建样式文件 `frontend/src/styles/landing.css`
+- 组件目录 `frontend/src/components/landing/`
+- 样式文件 `frontend/src/styles/landing.css`
 - 使用 CSS 变量实现主题色统一管理
 - 响应式布局，适配移动端和桌面端
 

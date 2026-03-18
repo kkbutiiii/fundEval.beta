@@ -7,11 +7,9 @@ import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Home from './pages/Home';
 import FundDetail from './pages/FundDetail';
 import PortfolioManager from './pages/PortfolioManager';
 import Watchlist from './pages/Watchlist';
-import Login from './pages/Login';
 import Register from './pages/Register';
 import LandingPage from './pages/LandingPage';
 
@@ -22,12 +20,10 @@ const App: React.FC = () => {
         <Router>
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/landing" element={<LandingPage />} />
 
             {/* Protected routes */}
-            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/fund/:fundCode" element={<ProtectedRoute><FundDetail /></ProtectedRoute>} />
             <Route path="/portfolio" element={<ProtectedRoute><PortfolioManager /></ProtectedRoute>} />
             <Route path="/watchlist" element={<ProtectedRoute><Watchlist /></ProtectedRoute>} />

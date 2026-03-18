@@ -113638,20 +113638,6 @@
     "pinyin_full": ""
   },
   {
-    "fund_code": "020048",
-    "fund_name": "红塔红土中债0-3年政策性金融债指数A",
-    "fund_type": "指数型-固收",
-    "pinyin": "HTHTZZ03NZCXJRZZSA",
-    "pinyin_full": ""
-  },
-  {
-    "fund_code": "020049",
-    "fund_name": "红塔红土中债0-3年政策性金融债指数C",
-    "fund_type": "指数型-固收",
-    "pinyin": "HTHTZZ03NZCXJRZZSC",
-    "pinyin_full": ""
-  },
-  {
     "fund_code": "020050",
     "fund_name": "英大安华纯债债券A",
     "fund_type": "债券型-长债",
@@ -140638,16 +140624,16 @@
   },
   {
     "fund_code": "024078",
-    "fund_name": "长城国证自由现金流指数A",
+    "fund_name": "长城国证自由现金流ETF联接A",
     "fund_type": "指数型-股票",
-    "pinyin": "CCGZZYXJLZSA",
+    "pinyin": "CCGZZYXJLETFLJA",
     "pinyin_full": ""
   },
   {
     "fund_code": "024079",
-    "fund_name": "长城国证自由现金流指数C",
+    "fund_name": "长城国证自由现金流ETF联接C",
     "fund_type": "指数型-股票",
-    "pinyin": "CCGZZYXJLZSC",
+    "pinyin": "CCGZZYXJLETFLJC",
     "pinyin_full": ""
   },
   {
@@ -155759,14 +155745,14 @@
   {
     "fund_code": "026386",
     "fund_name": "中欧价值锐选混合A",
-    "fund_type": "",
+    "fund_type": "混合型-偏股",
     "pinyin": "ZOJZRXHHA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026387",
     "fund_name": "中欧价值锐选混合C",
-    "fund_type": "",
+    "fund_type": "混合型-偏股",
     "pinyin": "ZOJZRXHHC",
     "pinyin_full": ""
   },
@@ -155927,7 +155913,7 @@
   {
     "fund_code": "026422",
     "fund_name": "永赢现金惠货币",
-    "fund_type": "",
+    "fund_type": "货币型-普通货币",
     "pinyin": "YYXJHHB",
     "pinyin_full": ""
   },
@@ -157656,14 +157642,14 @@
   {
     "fund_code": "026742",
     "fund_name": "中欧中证A500指数量化增强A",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "ZOZZA500ZSLHZQA",
     "pinyin_full": ""
   },
   {
     "fund_code": "026743",
     "fund_name": "中欧中证A500指数量化增强C",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "ZOZZA500ZSLHZQC",
     "pinyin_full": ""
   },
@@ -160337,7 +160323,7 @@
   {
     "fund_code": "159008",
     "fund_name": "景顺长城中证全指证券公司ETF",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "JSCCZZQZZQGSETF",
     "pinyin_full": ""
   },
@@ -160869,7 +160855,7 @@
   {
     "fund_code": "159186",
     "fund_name": "鹏华恒生港股通汽车主题ETF",
-    "fund_type": "",
+    "fund_type": "指数型-股票",
     "pinyin": "PHHSGGTQCZTETF",
     "pinyin_full": ""
   },
