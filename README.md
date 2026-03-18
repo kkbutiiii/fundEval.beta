@@ -36,12 +36,9 @@ C:\Users\11639\Documents\trae_projects\0311-FundEval.Beta
 │   │   │       └── PreviewShowcase.tsx # 功能预览区
 │   │   ├── pages/              # 页面目录
 │   │   │   ├── LandingPage.tsx        # 首页（公开访问，内置登录弹窗）
-│   │   │   ├── FundDetail.tsx         # 基金详情页（需登录）
-│   │   │   ├── FundDetailV2.tsx       # 新版基金详情页（浅色科技风）⭐新增
-│   │   │   ├── PortfolioManager.tsx   # 组合管理页（需登录）
-│   │   │   ├── PortfolioManagerV2.tsx # 新版组合管理页（浅色科技风）⭐新增
-│   │   │   ├── Watchlist.tsx          # 自选列表页（需登录）
-│   │   │   ├── WatchlistV2.tsx        # 新版自选监控页（浅色科技风）⭐新增
+│   │   │   ├── FundDetail.tsx         # 基金详情页（玻璃拟态设计）
+│   │   │   ├── PortfolioManager.tsx   # 组合管理页（玻璃拟态设计）
+│   │   │   ├── Watchlist.tsx          # 自选监控页（玻璃拟态设计）
 │   │   │   └── Register.tsx           # 注册页
 │   │   ├── components/         # 组件目录
 │   │   │   ├── landing/        # 高端首页组件
@@ -141,12 +138,9 @@ npm run dev -- --port 50888
 |------|------|------|
 | 首页 (LandingPage) | http://localhost:50888/ | 浅色科技风设计，公开访问，内置登录弹窗 |
 | 注册页 | http://localhost:50888/register | 用户注册页面 |
-| 基金详情 | http://localhost:50888/fund/:code | 基金详情页（需登录） |
-| 组合管理 | http://localhost:50888/portfolio | 基金组合管理（需登录） |
-| 自选监控 | http://localhost:50888/watchlist | 自选基金监控（需登录） |
-| 基金详情 V2 | http://localhost:50888/fund-v2/:code | 新版基金详情页（浅色科技风） |
-| 组合管理 V2 | http://localhost:50888/portfolio-v2 | 新版组合管理页（浅色科技风） |
-| 自选监控 V2 | http://localhost:50888/watchlist-v2 | 新版自选监控页（浅色科技风） |
+| 基金详情 | http://localhost:50888/fund/:code | 基金详情页（玻璃拟态设计，需登录） |
+| 组合管理 | http://localhost:50888/portfolio | 组合管理页（玻璃拟态设计，需登录） |
+| 自选监控 | http://localhost:50888/watchlist | 自选监控页（玻璃拟态设计，需登录） |
 | 主后端 API | http://localhost:50801/docs | FastAPI 文档 |
 | 估值服务 API | http://localhost:50802/docs | FastAPI 文档 |
 | API 详情文档 | [front-api-details.md](./front-api-details.md) | 前端页面与 API 端口映射文档 |
@@ -197,6 +191,17 @@ npm install
 
 ### 最近更新
 
+#### 2026-03-18 V2界面正式替换老UI ⭐重要更新
+
+**玻璃拟态设计界面成为主版本**：
+
+- **路由更新**: V2页面正式替换原有老UI页面
+  - `/watchlist` → WatchlistV2（玻璃拟态自选监控）
+  - `/portfolio` → PortfolioManagerV2（玻璃拟态组合管理）
+  - `/fund/:code` → FundDetailV2（玻璃拟态基金详情）
+- **移除旧路由**: 不再提供 `/watchlist-v2`、`/portfolio-v2`、`/fund-v2/:code` 访问路径
+- **代码变更**: `App.tsx` 路由配置更新，直接导入V2组件作为主版本
+
 #### 2026-03-18 首页预览图表优化
 
 **LandingPage 功能预览区图表全面升级**:
@@ -242,10 +247,10 @@ npm install
 
 **统一 Dashboard 浅色科技风格，提升用户体验**:
 
-- **新增 V2 观察页面**（保留原页面，新旧共存）:
-  - `/portfolio-v2` - 新版组合管理页
-  - `/fund-v2/:code` - 新版基金详情页
-  - `/watchlist-v2` - 新版自选监控页
+- **玻璃拟态设计页面**（已正式替换老UI）:
+  - 采用毛玻璃效果卡片（`backdrop-filter: blur(10px)`）
+  - 渐变主色：`linear-gradient(135deg, #1890ff 0%, #36cfc9 100%)`
+  - 浅色背景：`linear-gradient(180deg, #f0f7ff 0%, #ffffff 100%)`
 
 - **统一设计系统**:
   - 毛玻璃效果卡片（`backdrop-filter: blur(10px)`）
