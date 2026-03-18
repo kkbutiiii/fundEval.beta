@@ -115,6 +115,7 @@ class PortfolioHistoryData(BaseModel):
     xirr: Optional[float] = Field(None, description="Money-Weighted Return/XIRR (% annualized)")
     is_estimated: bool = Field(default=False, description="Whether data is based on estimated NAV")
     actual_nav_date: Optional[str] = Field(None, description="Actual NAV date if using estimated data")
+    lifetime_return_rate: Optional[float] = Field(None, description="累计收益率，从组合第一笔交易到当前的收益率(%)")
 
 
 class PortfolioHistory(BaseModel):

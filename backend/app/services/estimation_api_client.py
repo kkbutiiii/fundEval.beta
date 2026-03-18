@@ -222,7 +222,7 @@ class EstimationAPIClient:
                                 last_time=estimation.last_time or latest.time,
                                 data_count=estimation.count
                             ))
-                    except EstimationAPIError as e:
+                    except Exception as e:
                         logger.warning(f"Failed to get estimation for {code}: {e}")
         except Exception as e:
             logger.error(f"Error fetching batch estimations: {e}")
